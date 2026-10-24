@@ -10,9 +10,6 @@ jobs:
   native-verifier:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      ANDROID_AVD_HOME: ${{ runner.temp }}/updater-avds
-      ANDROID_USER_HOME: ${{ runner.temp }}/android-user
     strategy:
       fail-fast: false
       matrix:
@@ -29,6 +26,8 @@ jobs:
           API: ${{ matrix.api }}
         run: |
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-$API;google_apis;x86_64"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/updater-avds"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/android-user"
           mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
           echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n updater-verifier -p "$ANDROID_AVD_HOME/updater-verifier.avd" -k "system-images;android-$API;google_apis;x86_64" --force
           test -f "$ANDROID_AVD_HOME/updater-verifier.ini"
