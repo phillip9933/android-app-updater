@@ -81,6 +81,8 @@ class ExportSecurityTest(unittest.TestCase):
         self.export()
         with zipfile.ZipFile(self.destination / "android-app-updater-0.2.0-source.zip") as z:
             self.assertFalse(any("private-note" in n or "/build/" in n for n in z.namelist()))
+            self.assertEqual(0o644, z.getinfo("android-app-updater-0.2.0/LICENSE").external_attr >> 16)
+            self.assertEqual(0o755, z.getinfo("android-app-updater-0.2.0/gradlew").external_attr >> 16)
         with zipfile.ZipFile(self.destination / "maven" / exporter.COORDINATE / "android-updater-0.2.0.aar") as z:
             self.assertEqual(b"built from clean snapshot", z.read("fresh.txt"))
         self.assertEqual(self.git("rev-parse", "HEAD"), (self.destination / "SOURCE_REVISION.txt").read_text().strip())

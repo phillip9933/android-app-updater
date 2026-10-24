@@ -42,7 +42,9 @@ def committed_files(revision):
                 continue
             if not member.isfile():
                 raise SystemExit("Source snapshot must contain only regular files")
-            files[member.name] = (archive.extractfile(member).read(), member.mode & 0o777)
+            # Git tracks only the executable bit; archive umasks must not change artifact bytes.
+            mode = 0o755 if member.mode & 0o111 else 0o644
+            files[member.name] = (archive.extractfile(member).read(), mode)
     build_file = files.get("updater/build.gradle.kts", (b"", 0))[0].decode()
     if f'version = "{VERSION}"' not in build_file or f'group = "{GROUP}"' not in build_file:
         raise SystemExit("Exporter identity differs from committed library publication identity")
