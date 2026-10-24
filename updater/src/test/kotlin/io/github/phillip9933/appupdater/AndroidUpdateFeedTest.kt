@@ -138,6 +138,22 @@ class AndroidUpdateFeedTest {
 
     private fun releases(vararg releases: String) = "[${releases.joinToString(",")}]"
 
+    @Test fun rejectsJsonTypeConfusionAndInjectedTags() {
+        val valid = releases(release("android-v1.2.3", apk("raiun-android-1.2.3.apk")))
+        val confused =
+            listOf(
+                valid.replace("\"draft\":false", "\"draft\":\"false\""),
+                valid.replace("\"prerelease\":false", "\"prerelease\":\"false\""),
+                valid.replace("\"size\":1234", "\"size\":\"1234\""),
+                valid.replace("\"tag_name\":\"android-v1.2.3\"", "\"tag_name\":123"),
+            )
+        confused.forEach { assertNull(select(it, AndroidUpdateChannel.STABLE)) }
+        listOf("android-v1.2.3/../evil", "android-v1.2.3%2fother", "android-v1.2.3;sh", "android-v1.2.3?x=y")
+            .forEach { tag ->
+                assertNull(select(valid.replace("android-v1.2.3", tag), AndroidUpdateChannel.STABLE))
+            }
+    }
+
     private fun release(
         tag: String,
         assets: String,

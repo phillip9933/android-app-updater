@@ -249,12 +249,15 @@ class AndroidUpdateFeed(
         ): Boolean = url.pathSegments == listOf(config.owner, config.repository, "releases", "download", tag, asset)
 
         private fun JsonObject.string(key: String): String? =
-            (this[key] as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content
+            (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull && it.isString }?.content
 
         private fun JsonObject.boolean(key: String): Boolean? =
-            (this[key] as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content?.toBooleanStrictOrNull()
+            (this[key] as? JsonPrimitive)
+                ?.takeIf { it !is JsonNull && !it.isString }
+                ?.content
+                ?.toBooleanStrictOrNull()
 
         private fun JsonObject.long(key: String): Long? =
-            (this[key] as? JsonPrimitive)?.takeUnless { it is JsonNull }?.content?.toLongOrNull()
+            (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull && !it.isString }?.content?.toLongOrNull()
     }
 }

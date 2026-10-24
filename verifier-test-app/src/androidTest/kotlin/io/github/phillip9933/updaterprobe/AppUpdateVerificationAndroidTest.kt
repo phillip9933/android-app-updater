@@ -6,8 +6,14 @@ import io.github.phillip9933.appupdater.AndroidUpdateRelease
 import io.github.phillip9933.appupdater.UpdateConfig
 import io.github.phillip9933.appupdater.UpdateError
 import io.github.phillip9933.appupdater.UpdatePolicy
+import io.github.phillip9933.appupdater.UpdateManager
+import io.github.phillip9933.appupdater.UpdateState
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
+import android.content.Intent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 import java.io.File
 import java.io.RandomAccessFile
@@ -26,6 +32,53 @@ class AppUpdateVerificationAndroidTest {
 
     @Test fun differentSignerIsRejected() {
         assertFixtureError("wrong-signer.apk", UpdateError.SIGNATURE_MISMATCH)
+    }
+
+    @Test fun unsignedArchiveIsRejectedEvenWithMatchingDownloadHash() {
+        withFixture("unsigned.apk") { file, release ->
+            assertNotNull(verify(file, release, requireNotNull(release.sha256)))
+        }
+    }
+
+    @Test fun forgedSignedPayloadIsRejectedEvenWithRecomputedDownloadHash() {
+        withFixture("tampered-signature.apk") { file, release ->
+            assertNotNull(verify(file, release, requireNotNull(release.sha256)))
+        }
+    }
+
+    @Test fun installerHandoffRechecksBytesAndGrantsOnlyReadAccess() = runBlocking {
+        withFixture("valid-higher.apk") { file, release ->
+            val config = UpdateConfig("octocat", "updater-test-fixtures", "v", "probe-")
+            val manager = UpdateManager.get(context, config)
+            val digest = requireNotNull(release.sha256)
+            val name = MessageDigest.getInstance("SHA-256")
+                .digest("${release.tag}\u0000$digest".toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            val cached = context.cacheDir.resolve("updates/update-$name.apk")
+            cached.parentFile!!.mkdirs()
+            file.copyTo(cached, overwrite = true)
+            try {
+                context.getSharedPreferences(config.stateName, Context.MODE_PRIVATE).edit()
+                    .putString("ready_tag", release.tag).putString("ready_sha", digest).commit()
+                @Suppress("UNCHECKED_CAST")
+                val state = manager.state as MutableStateFlow<UpdateState>
+                state.value = state.value.copy(available = release, ready = true)
+                val intent = runBlocking { manager.prepareInstall() }
+                assertNotNull(intent)
+                assertEquals("${context.packageName}.android-updates", intent!!.data!!.authority)
+                assertEquals(Intent.FLAG_GRANT_READ_URI_PERMISSION, intent.flags)
+                RandomAccessFile(cached, "rw").use { archive ->
+                    val first = archive.readUnsignedByte()
+                    archive.seek(0)
+                    archive.writeByte(first xor 1)
+                }
+                assertNull(runBlocking { manager.prepareInstall() })
+                assertEquals(UpdateError.HASH_MISMATCH, manager.state.value.error)
+            } finally {
+                cached.delete()
+                context.getSharedPreferences(config.stateName, Context.MODE_PRIVATE).edit().clear().commit()
+            }
+        }
     }
 
     @Test fun differentPackageIsRejected() {

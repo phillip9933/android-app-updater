@@ -1,10 +1,12 @@
-# 0.2.0 — unreleased
+# Changelog
+
+## 0.2.0 — 2026-10-24 (prerelease)
 
 - Replace the personal-domain package and Maven group with `io.github.phillip9933`.
 - Remove application-specific references from the README and use GitHub private vulnerability reporting.
 - Breaking change: update imports and dependency coordinates. Updater bootstrap registration uses a new preference namespace; call initialize after upgrading. Previously published versions and Git history are preserved.
-
-# Changelog
+- Harden SDK export: reject dirty/untracked source, export committed files only, build artifacts from the same isolated snapshot, validate Maven identity and record the source revision.
+- Reject release JSON with incorrect field types. Add hostile URL/redirect, signer-set, forged/unsigned APK and installer revalidation regressions. Align the wrapper JAR with the pinned Gradle 8.13 distribution.
 
 ## 0.1.3 — 2026-10-24
 

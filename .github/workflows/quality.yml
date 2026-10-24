@@ -21,6 +21,8 @@ jobs:
         run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - name: Verify library
         run: ./gradlew --no-daemon ktlintCheck detekt :updater:testDebugUnitTest :updater:lintRelease :updater:publishReleasePublicationToBundleRepository :verifier-test-app:assembleDebug :verifier-test-app:assembleDebugAndroidTest
+      - name: Verify release export boundaries
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Upload reports and Maven bundle
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

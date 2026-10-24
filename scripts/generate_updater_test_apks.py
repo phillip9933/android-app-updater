@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from xml.sax.saxutils import escape
 
 
@@ -94,6 +95,8 @@ def main() -> None:
         "resource-true.apk": (args.application_id, args.installed_code + 1, True, False),
         "resource-false.apk": (args.application_id, args.installed_code + 1, False, False),
         "missing-application.apk": (args.application_id, args.installed_code + 1, False, False),
+        "unsigned.apk": (args.application_id, args.installed_code + 1, False, False),
+        "tampered-signature.apk": (args.application_id, args.installed_code + 1, False, False),
     })
     with tempfile.TemporaryDirectory(prefix="generic-updater-test-") as directory:
         work = Path(directory)
@@ -127,6 +130,13 @@ def main() -> None:
             unsigned = work / "unsigned.apk"
             run(str(tools / f"aapt{executable_suffix}"), "package", "-f", "-M", str(manifest),
                 "-S", str(resources), "-I", str(platform_jar), "-F", str(unsigned))
+            if name == "unsigned.apk":
+                shutil.copyfile(unsigned, args.output / name)
+                continue
+            marker = b"SYNTHETIC_SIGNED_CONTENT_0123456789"
+            if name == "tampered-signature.apk":
+                with zipfile.ZipFile(unsigned, "a") as archive:
+                    archive.writestr("assets/synthetic-integrity.txt", marker)
             signed = work / name
             keystore = wrong_key if different_signer else args.keystore
             alias = "wrong-signer" if different_signer else args.key_alias
@@ -138,6 +148,17 @@ def main() -> None:
                 "--out", str(signed), str(unsigned), env=environment,
             )
             run(str(java), "-jar", str(apksigner), "verify", "--min-sdk-version", str(args.min_sdk), str(signed))
+            if name == "tampered-signature.apk":
+                data = bytearray(signed.read_bytes())
+                offset = data.index(marker)
+                data[offset] ^= 1
+                signed.write_bytes(data)
+                result = subprocess.run(
+                    [str(java), "-jar", str(apksigner), "verify", str(signed)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                if result.returncode == 0:
+                    raise SystemExit("Tampered fixture unexpectedly retained a valid signature")
             shutil.copyfile(signed, args.output / name)
             print(f"{name}: {signed.stat().st_size} synthetic bytes")
 

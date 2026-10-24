@@ -8,7 +8,7 @@ Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable o
 
 ## Consume an explicit version
 
-The next version, **0.2.0**, uses `io.github.phillip9933:android-updater:0.2.0` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
+Version **0.2.0** uses `io.github.phillip9933:android-updater:0.2.0` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
 
 Version 0.2.0 changes the package and Maven group. Update imports and dependency coordinates together. Reinitialize the updater after upgrading: its bootstrap preference namespace changes, so automatic checks start with the new registration. Existing application data is unaffected.
 
@@ -61,13 +61,13 @@ Updater metadata and cached APKs are separate from application/vault data. Keepi
 ./gradlew --no-daemon :updater:publishReleasePublicationToBundleRepository
 ```
 
-The Maven repository is generated at `build/maven/`. `scripts/export_bundle.py DESTINATION` copies the pinned module artifacts, license and complete source snapshot to a consuming app's vendor directory and writes `SHA256SUMS`. Run it only after tests pass and the exact library publication is built. Once a version has been distributed, never rebuild changed bytes under the same version: bump the version, publish new artifacts, review the diff and deliberately update each consumer's pin.
+The Maven repository is generated at `build/maven/`. After tests pass and reviewed changes are committed, run `python3 scripts/export_bundle.py DESTINATION` with JDK 21 and ANDROID_HOME configured. The exporter requires a clean checkout, builds in an isolated snapshot of that commit, validates the publication, and writes the module artifacts, license, committed source ZIP, `SOURCE_REVISION.txt` and `SHA256SUMS`. It never packages existing developer build outputs or untracked files. See [release instructions](docs/RELEASING.md). Once a version has been distributed, never rebuild changed bytes under the same version: bump the version, publish new artifacts, review the diff and deliberately update each consumer's pin.
 
 A release needs a clean source revision, passing host/static/lint checks and a signed native install/upgrade journey on API 26, API 35 and a physical device. Do not publish production credentials or app APKs from this repository.
 
 ## Local verification
 
-Version 0.1.3 passed 43 host tests and native verifier regression tests on API 26 and API 35 (10 tests each), including independent GitHub CI runs. The renamed 0.2.0 candidate passed 43 host tests, formatting/static checks, release lint, Maven publication and probe APK assembly locally. Native device tests have not been rerun for 0.2.0. See [testing evidence](docs/TESTING.md) for scope and remaining physical-device acceptance.
+The hardened 0.2.0 candidate passed 55 host tests, nine synthetic exporter tests, formatting/static checks, release lint, Maven publication and probe APK assembly locally. The expanded native verifier suite passed 13 tests on each API 26 and API 35, including unsigned/forged APK rejection and installer-handoff revalidation. A fresh isolated build/export and all seven bundle pins also passed. This remains a prerelease; see [testing evidence](docs/TESTING.md) for scope and remaining physical-device acceptance.
 
 ## About this project
 
