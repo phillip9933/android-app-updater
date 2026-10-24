@@ -10,6 +10,9 @@ jobs:
   native-verifier:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/updater-avds
+      ANDROID_USER_HOME: ${{ runner.temp }}/android-user
     strategy:
       fail-fast: false
       matrix:
@@ -26,10 +29,16 @@ jobs:
           API: ${{ matrix.api }}
         run: |
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-$API;google_apis;x86_64"
-          echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n updater-verifier -k "system-images;android-$API;google_apis;x86_64" --force
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
+          echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n updater-verifier -p "$ANDROID_AVD_HOME/updater-verifier.avd" -k "system-images;android-$API;google_apis;x86_64" --force
+          test -f "$ANDROID_AVD_HOME/updater-verifier.ini"
+          $ANDROID_HOME/emulator/emulator -list-avds | grep -Fx updater-verifier
           sudo chmod a+rw /dev/kvm
           nohup $ANDROID_HOME/emulator/emulator -avd updater-verifier -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > emulator.log 2>&1 &
-          $ANDROID_HOME/platform-tools/adb wait-for-device
+          if ! timeout 90 $ANDROID_HOME/platform-tools/adb wait-for-device; then
+            cat emulator.log
+            exit 1
+          fi
           for attempt in $(seq 1 180); do
             if [ "$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then exit 0; fi
             sleep 2
