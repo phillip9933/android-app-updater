@@ -1,4 +1,4 @@
-package dev.rogers.appupdater
+package io.github.phillip9933.appupdater
 
 import android.content.Context
 import android.content.ContextWrapper
@@ -49,7 +49,7 @@ class UpdateManagerTest {
             .clear()
             .commit()
         context
-            .getSharedPreferences("dev.rogers.appupdater.bootstrap", Context.MODE_PRIVATE)
+            .getSharedPreferences("io.github.phillip9933.appupdater.bootstrap", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -72,7 +72,13 @@ class UpdateManagerTest {
                         mode: Int,
                     ): SharedPreferences {
                         val original = super.getSharedPreferences(name, mode)
-                        return if (name == "dev.rogers.appupdater.bootstrap") failingCommits(original) else original
+                        return if (name ==
+                            "io.github.phillip9933.appupdater.bootstrap"
+                        ) {
+                            failingCommits(original)
+                        } else {
+                            original
+                        }
                     }
                 }
             val disabled = UpdateManager.get(failingContext, config)
@@ -120,7 +126,7 @@ class UpdateManagerTest {
 
     @Test fun `worker ignores bootstrap from older host version until host registers`() {
         UpdateManager.get(context, config)
-        val bootstrap = context.getSharedPreferences("dev.rogers.appupdater.bootstrap", Context.MODE_PRIVATE)
+        val bootstrap = context.getSharedPreferences("io.github.phillip9933.appupdater.bootstrap", Context.MODE_PRIVATE)
         bootstrap.edit().putLong("host_version_code", -1).commit()
         UpdateManager.clearProcessInstanceForTests()
         assertNull(UpdateManager.getForWorker(context))
@@ -133,7 +139,7 @@ class UpdateManagerTest {
 
     @Test fun `worker ignores missing host version marker until host repairs it`() {
         UpdateManager.get(context, config)
-        val bootstrap = context.getSharedPreferences("dev.rogers.appupdater.bootstrap", Context.MODE_PRIVATE)
+        val bootstrap = context.getSharedPreferences("io.github.phillip9933.appupdater.bootstrap", Context.MODE_PRIVATE)
         bootstrap.edit().remove("host_version_code").commit()
         UpdateManager.clearProcessInstanceForTests()
         assertNull(UpdateManager.getForWorker(context))
@@ -179,7 +185,7 @@ class UpdateManagerTest {
 
     @Test fun `invalid worker bootstrap is ignored and repaired by host`() {
         context
-            .getSharedPreferences("dev.rogers.appupdater.bootstrap", Context.MODE_PRIVATE)
+            .getSharedPreferences("io.github.phillip9933.appupdater.bootstrap", Context.MODE_PRIVATE)
             .edit()
             .putInt("version", 1)
             .putString("owner", "example")

@@ -8,11 +8,11 @@ plugins {
     id("maven-publish")
 }
 
-group = "dev.rogers"
-version = "0.1.3"
+group = "io.github.phillip9933"
+version = "0.2.0"
 
 android {
-    namespace = "dev.rogers.appupdater"
+    namespace = "io.github.phillip9933.appupdater"
     compileSdk = 36
     defaultConfig { minSdk = 26 }
     compileOptions {

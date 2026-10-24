@@ -1,4 +1,4 @@
-package dev.rogers.appupdater
+package io.github.phillip9933.appupdater
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -768,7 +768,7 @@ class UpdateManager internal constructor(
             }
 
         private fun bootstrapPrefs(context: Context): SharedPreferences =
-            context.getSharedPreferences("dev.rogers.appupdater.bootstrap", Context.MODE_PRIVATE)
+            context.getSharedPreferences("io.github.phillip9933.appupdater.bootstrap", Context.MODE_PRIVATE)
 
         // Each early exit rejects one corrupt or incomplete persisted field before workers run.
         @Suppress("ReturnCount")

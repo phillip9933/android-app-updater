@@ -1,11 +1,11 @@
-package dev.rogers.updaterprobe
+package io.github.phillip9933.updaterprobe
 
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.rogers.appupdater.AndroidUpdateRelease
-import dev.rogers.appupdater.UpdateConfig
-import dev.rogers.appupdater.UpdateError
-import dev.rogers.appupdater.UpdatePolicy
+import io.github.phillip9933.appupdater.AndroidUpdateRelease
+import io.github.phillip9933.appupdater.UpdateConfig
+import io.github.phillip9933.appupdater.UpdateError
+import io.github.phillip9933.appupdater.UpdatePolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -121,7 +121,7 @@ class AppUpdateVerificationAndroidTest {
                 tagPrefix = "v",
                 assetPrefix = "probe-",
             )
-        val verifierClass = Class.forName("dev.rogers.appupdater.UpdateApkVerifier")
+        val verifierClass = Class.forName("io.github.phillip9933.appupdater.UpdateApkVerifier")
         val verifier =
             verifierClass
                 .getDeclaredConstructor(Context::class.java, UpdatePolicy::class.java)

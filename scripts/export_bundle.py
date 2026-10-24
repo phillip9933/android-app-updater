@@ -8,8 +8,8 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "0.1.3"
-COORDINATE = Path("dev/rogers/android-updater") / VERSION
+VERSION = "0.2.0"
+COORDINATE = Path("io/github/phillip9933/android-updater") / VERSION
 
 
 def main():

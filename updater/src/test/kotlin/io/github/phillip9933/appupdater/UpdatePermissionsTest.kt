@@ -1,4 +1,4 @@
-package dev.rogers.appupdater
+package io.github.phillip9933.appupdater
 
 import android.Manifest
 import android.content.pm.PackageManager

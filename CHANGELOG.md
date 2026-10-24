@@ -1,3 +1,9 @@
+# 0.2.0 — unreleased
+
+- Replace the personal-domain package and Maven group with `io.github.phillip9933`.
+- Remove application-specific references from the README and use GitHub private vulnerability reporting.
+- Breaking change: update imports and dependency coordinates. Updater bootstrap registration uses a new preference namespace; call initialize after upgrading. Previously published versions and Git history are preserved.
+
 # Changelog
 
 ## 0.1.3 — 2026-10-24

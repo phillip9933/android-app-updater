@@ -1,6 +1,6 @@
 # Security
 
-Report suspected vulnerabilities privately to security@rogers.ltd. Include affected version, impact and a synthetic reproducer. Never publish tokens, real app/vault records, private backups or signing keys.
+Report suspected vulnerabilities using [GitHub private vulnerability reporting](https://github.com/phillip9933/android-app-updater/security/advisories/new). Include affected version, impact and a synthetic reproducer. Never publish tokens, real app/vault records, private backups or signing keys.
 
 The library trusts Android package/signature enforcement and the host's configured public GitHub repository. It checks origins, redirects, byte limits, sizes, hashes when advertised, package/version/minimum API and installed signer identity before an explicit foreground installer handoff. It does not promise protection from a compromised OS, compromised release signing key or authorized malicious release. Strict signer matching does not support key rotation. Never uninstall an app to bypass a mismatch.
 

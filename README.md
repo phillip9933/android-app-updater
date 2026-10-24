@@ -1,6 +1,6 @@
 # Android App Updater
 
-A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or Raiun dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
+A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
 
 ## Security update
 
@@ -8,7 +8,9 @@ Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable o
 
 ## Consume an explicit version
 
-Use `dev.rogers:android-updater:0.1.3`, never a dynamic version, `SNAPSHOT`, sibling source path or mutable Git branch. Version 0.1.3 is the security prerelease superseding the first public SDK prerelease, 0.1.2. Versioned source and checksum-pinned Maven bundles are available from [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases). It is not yet published to Maven Central. Raiun consumes a checksum-pinned copy of its Maven artifacts and source bundle under `apps/android/third_party/android-updater/`. Other apps can use the same Maven bundle without accessing this working directory. A future public repository changes artifact delivery, not the app-facing API.
+The next version, **0.2.0**, uses `io.github.phillip9933:android-updater:0.2.0` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
+
+Version 0.2.0 changes the package and Maven group. Update imports and dependency coordinates together. Reinitialize the updater after upgrading: its bootstrap preference namespace changes, so automatic checks start with the new registration. Existing application data is unaffected.
 
 Copy the exported bundle into the consuming project and add its `maven/` directory to `dependencyResolutionManagement.repositories`:
 
@@ -17,15 +19,15 @@ exclusiveContent {
     forRepository {
         maven { url = uri(rootDir.resolve("third_party/android-updater/maven")) }
     }
-    filter { includeModule("dev.rogers", "android-updater") }
+    filter { includeModule("io.github.phillip9933", "android-updater") }
 }
 ```
 
-Retain and verify the bundle's SHA256SUMS before resolving dependencies; Raiun's `apps/android/settings.gradle.kts` is a working example that also rejects unlisted Maven files. Then add the explicit dependency and app configuration:
+Retain and verify the bundle's SHA256SUMS before resolving dependencies, and reject unlisted Maven files. Then add the explicit dependency and app configuration:
 
 ```kotlin
 dependencies {
-    implementation("dev.rogers:android-updater:0.1.3")
+    implementation("io.github.phillip9933:android-updater:0.2.0")
 }
 
 val config = UpdateConfig(
@@ -65,7 +67,7 @@ A release needs a clean source revision, passing host/static/lint checks and a s
 
 ## Local verification
 
-The earlier local 0.1.1 candidate recorded 43 passing host tests. The public 0.1.2 publication build passed ktlint, detekt, release lint (zero errors, 11 warnings and one hint) and Maven publication, reusing those 43 passing test results on Linux/JDK 21 on 2026-10-24. See docs/TESTING.md for scope and task reuse. Fixtures include two app identities, previous Raiun feed/policy regressions, worker migration, changed-source tokens, version-code startup gates, storage registration failure and missing network permission. Signed platform installation and API 26/API 35 device acceptance remain pending.
+Version 0.1.3 passed 43 host tests and native verifier regression tests on API 26 and API 35 (10 tests each), including independent GitHub CI runs. The renamed 0.2.0 candidate passed 43 host tests, formatting/static checks, release lint, Maven publication and probe APK assembly locally. Native device tests have not been rerun for 0.2.0. See [testing evidence](docs/TESTING.md) for scope and remaining physical-device acceptance.
 
 ## About this project
 
@@ -77,4 +79,4 @@ Read [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [architecture](do
 
 ## License and provenance
 
-Extracted from the local Raiun Android updater implementation. Distributed under the existing GNU Affero General Public License version 3; see LICENSE. The bundle includes corresponding library source/build files. Extraction and local packaging do not publish or relicense Raiun or other apps.
+Distributed under the GNU Affero General Public License version 3; see [LICENSE](LICENSE). Exported bundles include corresponding library source and build files.

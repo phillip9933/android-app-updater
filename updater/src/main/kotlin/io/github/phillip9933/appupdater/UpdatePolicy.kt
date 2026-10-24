@@ -1,4 +1,4 @@
-package dev.rogers.appupdater
+package io.github.phillip9933.appupdater
 
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull

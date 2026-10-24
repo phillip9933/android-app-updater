@@ -1,6 +1,6 @@
 # Android App Updater
 
-Read ../../AGENTS.md and ../AGENTS.md when present. This is a standalone Android library, extracted from Raiun; it must not depend on an application module, branding, account/network client, or a sibling checkout. Package namespace is `dev.rogers.appupdater`; artifact `dev.rogers:android-updater` uses explicit versions.
+Read ../../AGENTS.md and ../AGENTS.md when present. This is a standalone Android library, extracted from Raiun; it must not depend on an application module, branding, account/network client, or a sibling checkout. Package namespace is `io.github.phillip9933.appupdater`; artifact `io.github.phillip9933:android-updater` uses explicit versions.
 
 Run Gradle from this directory with JDK 21. Use synthetic release/APK fixtures. Preserve strict GitHub origin, size, hash, package/version/signing checks and explicit foreground installation. Do not add secrets, signing material, automatic installation or arbitrary authenticated endpoints. WorkManager bootstrap must work after process recreation without relying on an Activity.
 

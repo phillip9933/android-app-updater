@@ -25,3 +25,7 @@ GitHub rejected the first workflow-location follow-up before jobs started becaus
 Final independent native CI [40052660831](https://github.com/phillip9933/android-app-updater/actions/runs/40052660831) passed **10/10 on API 26** and **10/10 on API 35**, with zero failures/errors/skips in both downloaded XML reports. Quality CI [40052660786](https://github.com/phillip9933/android-app-updater/actions/runs/40052660786) also passed after the workflow-only corrections. The original quality run's downloaded AAR is byte-identical to the published 0.1.3 AAR (SHA-256 `69cb93078aed03a03257b7c3837a580028daec06a3d97faaf5bab6bc88c40e26`). Tagged source `6c5dea178527c218204a877b449e5477c13b08af` and release assets remain immutable; subsequent commits changed CI setup and documentation only.
 
 Raiun's independent task additionally attested the exact published AAR in app-level verifier/provider tests (**9/9 on each API 26/35**) and synthetic Android installer upgrades retaining a private sentinel on both APIs. This is separate app-task evidence, not production signing, Kura upgrade or physical-device acceptance.
+
+## 0.2.0 neutral namespace candidate — 24 October 2026
+
+After the package/Maven-group rename, local ktlint, detekt, host tests (43 passing), release lint, Maven publication and debug probe/instrumentation APK assembly passed. Native device tests were not rerun for this rename; previous API 26/API 35 results belong to 0.1.3. Version 0.2.0 remains unreleased. Published versions and their history are preserved.

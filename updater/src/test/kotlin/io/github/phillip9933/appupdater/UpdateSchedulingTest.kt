@@ -1,4 +1,4 @@
-package dev.rogers.appupdater
+package io.github.phillip9933.appupdater
 
 import android.content.Context
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -23,7 +23,7 @@ class UpdateSchedulingTest {
     @Before fun setUp() {
         UpdateManager.clearProcessInstanceForTests()
         context
-            .getSharedPreferences("dev.rogers.appupdater.bootstrap", Context.MODE_PRIVATE)
+            .getSharedPreferences("io.github.phillip9933.appupdater.bootstrap", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()

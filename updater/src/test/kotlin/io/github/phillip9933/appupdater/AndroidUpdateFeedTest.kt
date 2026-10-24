@@ -1,4 +1,4 @@
-package dev.rogers.appupdater
+package io.github.phillip9933.appupdater
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

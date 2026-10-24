@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.rogers.updaterprobe"
+    namespace = "io.github.phillip9933.updaterprobe"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.rogers.updaterprobe"
+        applicationId = "io.github.phillip9933.updaterprobe"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
