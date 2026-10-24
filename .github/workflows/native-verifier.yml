@@ -1,0 +1,52 @@
+name: Native APK verifier
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  native-verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 35]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@07d1f8453baaff67fb503883367f8b13e6158a54 # v6
+      - name: Prepare disposable emulator
+        env:
+          API: ${{ matrix.api }}
+        run: |
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools" "emulator" "system-images;android-$API;google_apis;x86_64"
+          echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n updater-verifier -k "system-images;android-$API;google_apis;x86_64" --force
+          sudo chmod a+rw /dev/kvm
+          nohup $ANDROID_HOME/emulator/emulator -avd updater-verifier -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > emulator.log 2>&1 &
+          $ANDROID_HOME/platform-tools/adb wait-for-device
+          for attempt in $(seq 1 180); do
+            if [ "$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then exit 0; fi
+            sleep 2
+          done
+          cat emulator.log
+          exit 1
+      - name: Run real archive verifier regressions
+        run: ./gradlew --no-daemon :verifier-test-app:connectedDebugAndroidTest --max-workers=2 --console=plain
+      - name: Preserve native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-verifier-api-${{ matrix.api }}
+          path: |
+            verifier-test-app/build/reports/
+            verifier-test-app/build/outputs/androidTest-results/
+            emulator.log
+      - name: Stop disposable emulator
+        if: always()
+        run: $ANDROID_HOME/platform-tools/adb emu kill || true

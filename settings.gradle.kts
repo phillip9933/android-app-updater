@@ -7,3 +7,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "android-app-updater"
 include(":updater")
+
+include(":verifier-test-app")

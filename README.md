@@ -2,9 +2,13 @@
 
 A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or Raiun dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
 
+## Security update
+
+Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable on Android 15. The fix reads the binary manifest, resolves resource-backed booleans and fails closed on missing/unreadable metadata. See [testing](docs/TESTING.md) for native regression evidence and remaining acceptance gates.
+
 ## Consume an explicit version
 
-Use `dev.rogers:android-updater:0.1.2`, never a dynamic version, `SNAPSHOT`, sibling source path or mutable Git branch. Version 0.1.2 is the first public SDK prerelease. Versioned source and checksum-pinned Maven bundles are available from [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases). It is not yet published to Maven Central. Raiun consumes a checksum-pinned copy of its Maven artifacts and source bundle under `apps/android/third_party/android-updater/`. Other apps can use the same Maven bundle without accessing this working directory. A future public repository changes artifact delivery, not the app-facing API.
+Use `dev.rogers:android-updater:0.1.3`, never a dynamic version, `SNAPSHOT`, sibling source path or mutable Git branch. Version 0.1.3 is the security prerelease superseding the first public SDK prerelease, 0.1.2. Versioned source and checksum-pinned Maven bundles are available from [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases). It is not yet published to Maven Central. Raiun consumes a checksum-pinned copy of its Maven artifacts and source bundle under `apps/android/third_party/android-updater/`. Other apps can use the same Maven bundle without accessing this working directory. A future public repository changes artifact delivery, not the app-facing API.
 
 Copy the exported bundle into the consuming project and add its `maven/` directory to `dependencyResolutionManagement.repositories`:
 
@@ -21,7 +25,7 @@ Retain and verify the bundle's SHA256SUMS before resolving dependencies; Raiun's
 
 ```kotlin
 dependencies {
-    implementation("dev.rogers:android-updater:0.1.2")
+    implementation("dev.rogers:android-updater:0.1.3")
 }
 
 val config = UpdateConfig(

@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "dev.rogers"
-version = "0.1.2"
+version = "0.1.3"
 
 android {
     namespace = "dev.rogers.appupdater"

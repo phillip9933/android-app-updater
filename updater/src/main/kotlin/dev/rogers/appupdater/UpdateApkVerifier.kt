@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.res.Resources
+import android.content.res.XmlResourceParser
 import android.os.Build
+import org.xmlpull.v1.XmlPullParser
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
@@ -35,6 +38,7 @@ internal class UpdateApkVerifier(
         }
         val installed = installedPackage() ?: return UpdateError.INVALID_APK
         val candidate = archivePackage(file) ?: return UpdateError.INVALID_APK
+        val manifestDebuggable = archiveManifestDebuggable(file, candidate) ?: return UpdateError.INVALID_APK
         return policy
             .validApkMetadata(
                 release,
@@ -45,7 +49,7 @@ internal class UpdateApkVerifier(
                     versionCode(candidate),
                     candidate.versionName,
                     candidate.applicationInfo?.minSdkVersion ?: Int.MAX_VALUE,
-                    candidate.applicationInfo?.flags?.and(ApplicationInfo.FLAG_DEBUGGABLE) != 0,
+                    candidate.applicationInfo?.flags?.and(ApplicationInfo.FLAG_DEBUGGABLE) != 0 || manifestDebuggable,
                     signers(candidate),
                 ),
                 Build.VERSION.SDK_INT,
@@ -116,6 +120,87 @@ internal class UpdateApkVerifier(
         } catch (_: Exception) {
             null
         }
+
+    /** Archive PackageInfo flags can omit manifest-derived values on API 35; read the APK's binary manifest. */
+    private fun archiveManifestDebuggable(
+        file: File,
+        candidate: PackageInfo,
+    ): Boolean? {
+        val archiveInfo = candidate.applicationInfo ?: return null
+        val application =
+            ApplicationInfo(archiveInfo).apply {
+                sourceDir = file.absolutePath
+                publicSourceDir = file.absolutePath
+                splitSourceDirs = null
+                splitPublicSourceDirs = null
+            }
+        return try {
+            val resources = context.packageManager.getResourcesForApplication(application)
+            val parser = resources.assets.openXmlResourceParser("AndroidManifest.xml")
+            try {
+                parseArchiveManifestDebuggable(resources, parser)
+            } finally {
+                parser.close()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseArchiveManifestDebuggable(
+        resources: Resources,
+        parser: XmlResourceParser,
+    ): Boolean? {
+        if (!nextRootManifest(parser)) return null
+        var sawApplication = false
+        var debuggable = false
+        var duplicateApplication = false
+        var closedManifest = false
+        while (!closedManifest && parser.next() != XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == XmlPullParser.START_TAG && isElement(parser, 2, "application")) {
+                if (sawApplication) {
+                    duplicateApplication = true
+                } else {
+                    sawApplication = true
+                    debuggable = applicationDebuggable(resources, parser)
+                }
+            }
+            if (parser.eventType == XmlPullParser.END_TAG && isElement(parser, 1, "manifest")) {
+                closedManifest = true
+            }
+        }
+        val validStructure = closedManifest && sawApplication && !duplicateApplication
+        return if (validStructure && parser.next() == XmlPullParser.END_DOCUMENT) {
+            debuggable
+        } else {
+            null
+        }
+    }
+
+    private fun isElement(
+        parser: XmlResourceParser,
+        depth: Int,
+        name: String,
+    ): Boolean = parser.depth == depth && parser.name == name
+
+    private fun nextRootManifest(parser: XmlResourceParser): Boolean {
+        while (parser.eventType != XmlPullParser.START_TAG && parser.eventType != XmlPullParser.END_DOCUMENT) {
+            parser.next()
+        }
+        return isElement(parser, 1, "manifest")
+    }
+
+    private fun applicationDebuggable(
+        resources: Resources,
+        parser: XmlResourceParser,
+    ): Boolean {
+        val attributes = resources.obtainAttributes(parser, intArrayOf(android.R.attr.debuggable))
+        return try {
+            attributes.getBoolean(0, false)
+        } finally {
+            attributes.recycle()
+        }
+    }
 
     @Suppress("DEPRECATION")
     private fun signers(info: PackageInfo): List<ByteArray> =
