@@ -22,7 +22,7 @@ verification does not cover those external downloads.
 3. Regenerate locks and checksums with JDK 21:
 
    ```sh
-   ./gradlew --no-daemon --write-locks --write-verification-metadata sha256 \
+   ./gradlew --no-daemon --refresh-dependencies --write-locks --write-verification-metadata sha256 \
      :updater:dependencies :verifier-test-app:dependencies \
      ktlintCheck detekt :updater:testDebugUnitTest :updater:lintRelease \
      :updater:assembleRelease :verifier-test-app:assembleDebug \
@@ -34,7 +34,11 @@ verification does not cover those external downloads.
    Compare publisher checksums/signatures through an independent trusted path
    where available, investigate unexplained changes, and keep that evidence.
    Do not accept a second checksum for unexpectedly modified existing artifacts.
-5. Build from clean outputs with strict verification and no write flags. Run
+5. Build from clean outputs with strict verification and no write flags. Repeat
+   resolution with `--refresh-dependencies` and verify independent CI: a warm
+   resolution cache can hide parent POMs or BOM/module metadata that a new build
+   needs. Review and pin those exact metadata files rather than adding trust
+   exceptions or disabling verification. Run
    `python3 scripts/check_dependency_verification.py` to exercise rejection of
    altered/unlisted artifacts and version drift in a disposable local Maven repo.
    Run the normal quality and native suites appropriate to the change. CI only
