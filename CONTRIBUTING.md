@@ -6,7 +6,7 @@ Do not introduce app UI, branding, account clients or authenticated update serve
 
 ## Public roadmap and issue management
 
-Follow the [public roadmap](https://github.com/users/phillip9933/projects/2) for release plans and the work board for individual tasks. This is the shared convention across maintained repositories. Issues, milestones and Project fields are the live source of truth; do not duplicate the live task list in ROADMAP.md or other Markdown backlogs.
+Follow the [public roadmap](https://github.com/users/phillip9933/projects/4/views/2) for release plans and [work board](https://github.com/users/phillip9933/projects/4/views/1) for individual tasks. This is the shared convention across maintained repositories. Issues, milestones and Project fields are the live source of truth; do not duplicate the live task list in ROADMAP.md or other Markdown backlogs.
 
 ### Issue type and priority
 
@@ -40,3 +40,9 @@ For wallets and cloud clients, explicitly test relevant encryption, storage, bac
 Every issue records its goal/problem, scope and explicit exclusions, a **Done when** acceptance checklist, dependencies (or None), and verification results/links before closure. New reports may say verification is pending. Release trackers additionally name the target version, one owner, included issues, promotion-gate checklists, remaining blockers and build/release links.
 
 The **Roadmap** view contains only `type:release` items on a timeline, with Stage and estimated start/target dates. The **Work board** contains bugs, features, maintenance and docs grouped by Status. Keep statuses and stages current as work changes. Preserve report authors’ original details when adding triage structure, and disclose material AI assistance in implementation and verification summaries.
+
+### Updater project operation
+
+The updater has its own public Project; changes here do not change other repositories’ plans. New or updated issues are automatically added to **Inbox**. Maintainers triage one type and one priority, set Status, and assign a milestone only for intended release scope. Only release trackers receive a Stage. The automatic “Item closed → Done” workflow is disabled: rejected or duplicate issues must not appear as delivered work. Record a concrete dependency and unblocking condition for Blocked items.
+
+For SDK promotion, preserve published artifact bytes and validate same-package/same-signer host upgrades, retained synthetic data, persisted workers and process recreation, consent/denial/cancellation, identity/hash rejection, and physical-device behavior. Verifier tests alone do not satisfy host-upgrade acceptance. Use new immutable versions for changed artifacts. No schedule or Stage update authorizes production signing or a consuming-app release.
