@@ -41,7 +41,9 @@ verification does not cover those external downloads.
    exceptions or disabling verification. Run
    `python3 scripts/check_dependency_verification.py` to exercise rejection of
    altered/unlisted artifacts and version drift in a disposable local Maven repo.
-   Run the normal quality and native suites appropriate to the change. CI only
+   Run the normal quality and native suites appropriate to the change. Native
+   runner configurations must also pass: APK assembly alone does not exercise
+   Android's unified-test-platform resolution. CI only
    consumes the reviewed baseline; it never regenerates it.
 
 The initial checksum baseline was generated from the existing resolved build
