@@ -32,4 +32,5 @@ jobs:
           name: android-updater-reports-and-maven
           path: |
             updater/build/reports/
+            build/reports/dependency-verification/
             build/maven/

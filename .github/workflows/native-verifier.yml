@@ -54,6 +54,7 @@ jobs:
           path: |
             verifier-test-app/build/reports/
             verifier-test-app/build/outputs/androidTest-results/
+            build/reports/dependency-verification/
             emulator.log
       - name: Stop disposable emulator
         if: always()
