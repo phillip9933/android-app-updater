@@ -1,5 +1,56 @@
 # Testing and acceptance
 
+Physical acceptance completed on 26 October 2026 after the owner-approved Pixel
+handoff. See [physical results and fixture limits](PHYSICAL_ACCEPTANCE.md): 13
+native tests passed for published 0.2.0 and again for local 0.2.1, real installer
+denial/Cancel/Update and retained synthetic data passed, and both candidate worker
+migration scenarios passed. The earlier pending statements below record the state
+before this physical run. Source review/publication gates remain open.
+
+## 0.2.1 maintenance validation — 26 October 2026
+
+Deterministic same-package/same-signer host replacement using the immutable
+published 0.1.3 and 0.2.0 AARs reproduced [obsolete queued Wi-Fi work](https://github.com/phillip9933/android-app-updater/issues/8)
+on API 26. A delayed old-namespace request remained active after the host upgrade
+made its selected release obsolete. The periodic worker was replaced correctly.
+An independent host regression failed before the correction. Local 0.2.1 cancels
+the unique download request when no eligible release remains; it preserves the
+user's opt-in. Published 0.2.0 artifacts remain unchanged.
+
+The corrected candidate passed the [synthetic host upgrade fixture](UPGRADE_ACCEPTANCE.md)
+on separate API 26 and API 35 emulators, with automatic checks enabled and
+disabled. Each scenario retains a private sentinel and preferences across signed
+`install -r`, verifies obsolete-work cancellation/periodic replacement, then
+checks worker-only bootstrap after another process stop and rejects an unrelated
+configuration token. Old/new host certificate digests match. The fixture used
+exact published 0.1.3 bytes and an explicitly hashed local correction AAR; these
+local bytes are test candidates, not release artifacts. Initial harness setup
+failures and a scheduling-race false pass were preserved and excluded from the
+deterministic result.
+
+Fresh correction checks passed: **56 host tests** with zero failures/errors/skips,
+ktlint, detekt, release lint, library/probe APK assembly, **nine exporter
+regressions**, and **13 native APK security tests on each API 26/35**. The existing
+redirect, parsing, APK identity/signer/hash and installer-URI regressions were
+included; no new bypass was demonstrated. The checksum-pinned published 0.2.0 API
+also compiled the host-owned popup example, without adding UI to the SDK.
+
+Build hardening adds project/plugin classpath locks and SHA-256 verification for
+549 components / 980 artifacts. A clean strict offline build passed before the
+runtime correction, and the correction passed the same strict quality tasks.
+Four isolated Gradle checks prove valid input acceptance, altered/unlisted
+artifact rejection and dependency version-drift rejection. The baseline pins
+existing resolved inputs; it is not independent upstream provenance attestation.
+See [dependency review and trust boundaries](DEPENDENCIES.md).
+
+AI assistance was used for implementation, review and tests. These results were
+recorded before owner approval to push and publish. No consumer integration, production signing,
+physical-device interaction or installer-consent journey was performed. The
+scanner chat retains exclusive Pixel access for its current owner-requested
+tests at that time; the subsequent completed physical run is linked above. Final
+source, independent CI and artifact verification are recorded on the
+[0.2.1 release](https://github.com/phillip9933/android-app-updater/releases/tag/v0.2.1).
+
 On 2026-10-24 the prepublication 0.1.1 source recorded 43 passing host tests, ktlint, detekt and release lint. Version 0.1.2 changes publication/provenance documentation and version metadata; fresh checks are recorded below after execution. CI runs the same checks and publishes reports and unsigned Maven artifacts.
 
 Before calling this stable, run signed host installation/upgrade journeys on API 26, API 35 and physical hardware, including process recreation, install-permission denial, cancellation, wrong signer/package, offline failures and retained app data. Host tests and static checks do not prove Android installer acceptance. No private signing key is part of this library or its tests.

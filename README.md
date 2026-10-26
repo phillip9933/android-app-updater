@@ -10,11 +10,13 @@ A standalone Kotlin Android library for public GitHub release checks and verifie
 
 ## Security update
 
+**0.2.1** corrects [obsolete queued Wi-Fi work after a host upgrade](https://github.com/phillip9933/android-app-updater/issues/8) and adds build dependency locks and checksum verification. Earlier release assets remain immutable. No shared UI module is planned: each app owns its update UI.
+
 Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable on Android 15. The fix reads the binary manifest, resolves resource-backed booleans and fails closed on missing/unreadable metadata. See [testing](docs/TESTING.md) for native regression evidence and remaining acceptance gates.
 
 ## Consume an explicit version
 
-Version **0.2.0** uses `io.github.phillip9933:android-updater:0.2.0` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
+Version **0.2.1** uses `io.github.phillip9933:android-updater:0.2.1` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
 
 Version 0.2.0 changes the package and Maven group. Update imports and dependency coordinates together. Reinitialize the updater after upgrading: its bootstrap preference namespace changes, so automatic checks start with the new registration. Existing application data is unaffected.
 
@@ -33,7 +35,7 @@ Retain and verify the bundle's SHA256SUMS before resolving dependencies, and rej
 
 ```kotlin
 dependencies {
-    implementation("io.github.phillip9933:android-updater:0.2.0")
+    implementation("io.github.phillip9933:android-updater:0.2.1")
 }
 
 val config = UpdateConfig(
@@ -47,6 +49,8 @@ updater.initialize()
 ```
 
 The library exposes `StateFlow<UpdateState>` and operations for checking, choosing stable/beta, dismissal, download/cancellation and preparing an installer Intent. Keep Compose styling, translations, permission handling and launching the returned Intent in the app. Call `prepareInstall()` on an explicit foreground user action; never start an installer from a worker. An installer return does not prove installation succeeded.
+
+For a new-version popup, see the [host-owned integration guide and compilable example](docs/UPDATE_PROMPT.md). Build maintainers should follow the [dependency lock and checksum review procedure](docs/DEPENDENCIES.md).
 
 The app must explicitly declare `INTERNET`, `ACCESS_NETWORK_STATE` and `REQUEST_INSTALL_PACKAGES` where its distribution and privacy policy permit them. The library itself does not declare INTERNET or REQUEST_INSTALL_PACKAGES. WorkManager can contribute its own normal permissions through manifest merging; inspect the final app manifest. It contributes a nonexported FileProvider at `${applicationId}.android-updates`, scoped to the `updates/` cache subdirectory. Do not duplicate that provider in the host manifest. WorkManager configuration must remain available after process recreation.
 
@@ -72,6 +76,8 @@ The Maven repository is generated at `build/maven/`. After tests pass and review
 A release needs a clean source revision, passing host/static/lint checks and a signed native install/upgrade journey on API 26, API 35 and a physical device. Do not publish production credentials or app APKs from this repository.
 
 ## Local verification
+
+Version 0.2.1 passed 56 host tests, nine exporter regressions, four dependency rejection checks, and 13 native security cases per API 26/35. Signed synthetic host upgrades with retained data and worker recreation passed on both emulator APIs and Pixel 10 Pro / Android 17. The Pixel also passed 13 native cases for published 0.2.0 and the 0.2.1 correction, plus real Android permission denial, installer cancellation and explicit update confirmation. See [physical evidence and limits](docs/PHYSICAL_ACCEPTANCE.md) and [migration checks](docs/UPGRADE_ACCEPTANCE.md). These synthetic checks do not replace production-signed consumer acceptance.
 
 The hardened 0.2.0 candidate passed 55 host tests, nine synthetic exporter tests, formatting/static checks, release lint, Maven publication and probe APK assembly locally. The expanded native verifier suite passed 13 tests on each API 26 and API 35, including unsigned/forged APK rejection and installer-handoff revalidation. A fresh isolated build/export and all seven bundle pins also passed. This remains a prerelease; see [testing evidence](docs/TESTING.md) for scope and remaining physical-device acceptance.
 

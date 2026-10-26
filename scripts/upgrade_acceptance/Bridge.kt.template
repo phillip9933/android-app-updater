@@ -1,0 +1,19 @@
+package example.upgrade
+
+import android.content.Context
+import @NAMESPACE@.UpdateConfig
+import @NAMESPACE@.UpdateManager
+
+object Bridge {
+    fun manager(context: Context) = UpdateManager.get(
+        context, UpdateConfig("example", "updater", "android-v", "example-android-"),
+    )
+    fun initialize(context: Context) = manager(context).initialize()
+    fun workerBootstrap(context: Context): Any? {
+        val method = UpdateManager.Companion.javaClass.declaredMethods.single {
+            it.name.startsWith("getForWorker") && it.parameterTypes.size == 1
+        }
+        method.isAccessible = true
+        return method.invoke(UpdateManager.Companion, context)
+    }
+}

@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 GROUP = "io.github.phillip9933"
 ARTIFACT = "android-updater"
 COORDINATE = Path(*GROUP.split(".")) / ARTIFACT / VERSION

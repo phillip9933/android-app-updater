@@ -408,8 +408,12 @@ class UpdateManager internal constructor(
 
     private fun scheduleAutomaticDownload() {
         val snapshot = _state.value
-        val release = snapshot.available ?: return
-        if (!automaticDownloadEnabled(snapshot) || !policy.validRelease(release)) return
+        val release = snapshot.available
+        if (release == null || !automaticDownloadEnabled(snapshot) || !policy.validRelease(release)) {
+            // A host upgrade can make a saved release obsolete while its old worker remains queued.
+            WorkManager.getInstance(context).cancelUniqueWork(AUTO_DOWNLOAD_WORK_NAME)
+            return
+        }
         val request =
             OneTimeWorkRequestBuilder<UpdateDownloadWorker>()
                 .setInputData(

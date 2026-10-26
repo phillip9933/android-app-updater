@@ -23,6 +23,8 @@ jobs:
         run: ./gradlew --no-daemon ktlintCheck detekt :updater:testDebugUnitTest :updater:lintRelease :updater:publishReleasePublicationToBundleRepository :verifier-test-app:assembleDebug :verifier-test-app:assembleDebugAndroidTest
       - name: Verify release export boundaries
         run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Verify dependency rejection paths
+        run: python3 scripts/check_dependency_verification.py
       - name: Upload reports and Maven bundle
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

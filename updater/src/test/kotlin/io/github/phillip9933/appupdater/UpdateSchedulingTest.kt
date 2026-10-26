@@ -2,7 +2,10 @@ package io.github.phillip9933.appupdater
 
 import android.content.Context
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.impl.WorkManagerImpl
 import androidx.work.testing.WorkManagerTestInitHelper
@@ -57,5 +60,23 @@ class UpdateSchedulingTest {
                 .getWorkSpec(info.id.toString())!!
         assertEquals(UpdateWorker::class.java.name, spec.workerClassName)
         assertTrue(manager.matchesWorkConfig(spec.input.getString("config_id")))
+    }
+
+    @Test fun `no remaining release cancels an obsolete queued wifi download`() {
+        val work = WorkManager.getInstance(context)
+        val pending =
+            OneTimeWorkRequestBuilder<UpdateDownloadWorker>()
+                .setInitialDelay(24, TimeUnit.HOURS)
+                .build()
+        work
+            .enqueueUniqueWork("android-public-release-wifi-download", ExistingWorkPolicy.REPLACE, pending)
+            .result
+            .get()
+
+        val manager = UpdateManager(context, config, { null }, { "1.0.1" })
+        manager.setWifiDownload(true)
+
+        assertEquals(WorkInfo.State.CANCELLED, work.getWorkInfoById(pending.id).get()!!.state)
+        assertTrue(manager.state.value.wifiDownload)
     }
 }

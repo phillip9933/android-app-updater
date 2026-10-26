@@ -10,7 +10,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.phillip9933.updaterprobe"
+        applicationId = providers.gradleProperty("probeApplicationId")
+            .orElse("io.github.phillip9933.updaterprobe").get()
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -19,6 +20,11 @@ android {
     }
 
     sourceSets.getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("generated/updater-test-assets"))
+    if (providers.gradleProperty("includeInstallerUiDriver").orElse("false").get().toBoolean()) {
+        sourceSets.getByName("androidTest").java.srcDir(rootProject.file("scripts/physical_acceptance/driver"))
+    }
+    // Compile the host-owned documentation example against the real public SDK API.
+    sourceSets.getByName("main").java.srcDir(rootProject.file("examples"))
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
