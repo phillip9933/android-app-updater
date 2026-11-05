@@ -16,6 +16,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import java.io.File
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import java.io.RandomAccessFile
 import java.security.MessageDigest
 
@@ -78,6 +82,65 @@ class AppUpdateVerificationAndroidTest {
                 cached.delete()
                 context.getSharedPreferences(config.stateName, Context.MODE_PRIVATE).edit().clear().commit()
             }
+        }
+    }
+
+    @Test fun verifiedRedownloadAtomicallyReplacesCorruptCachedApk() {
+        withFixture("valid-higher.apk") { file, release ->
+            withDownloadFixture(file, release) { manager, cached ->
+                cached.writeText("Synthetic corrupted cache entry")
+                runBlocking { manager.download() }
+                assertEquals(null, manager.state.value.error)
+                org.junit.Assert.assertTrue(manager.state.value.ready)
+                assertEquals(release.sha256, sha256(cached))
+                assertNotNull(runBlocking { manager.prepareInstall() })
+                org.junit.Assert.assertFalse(context.cacheDir.resolve("updates/update.part").exists())
+            }
+        }
+    }
+
+    @Test fun rejectedNewBytesDoNotReplaceExistingVerifiedCachedApk() {
+        withFixture("valid-higher.apk") { file, release ->
+            withDownloadFixture(file, release, corruptResponse = true) { manager, cached ->
+                file.copyTo(cached, overwrite = true)
+                runBlocking { manager.download() }
+                assertEquals(UpdateError.HASH_MISMATCH, manager.state.value.error)
+                org.junit.Assert.assertFalse(manager.state.value.ready)
+                assertEquals(release.sha256, sha256(cached))
+                org.junit.Assert.assertFalse(context.cacheDir.resolve("updates/update.part").exists())
+            }
+        }
+    }
+
+    private fun withDownloadFixture(
+        file: File,
+        release: AndroidUpdateRelease,
+        corruptResponse: Boolean = false,
+        check: (UpdateManager, File) -> Unit,
+    ) {
+        val manager = UpdateManager.get(context, UpdateConfig("octocat", "updater-test-fixtures", "v", "probe-"))
+        val clientField = manager.javaClass.getDeclaredField("client").apply { isAccessible = true }
+        val originalClient = clientField.get(manager)
+        val state = manager.state as MutableStateFlow<UpdateState>
+        val originalState = state.value
+        val bytes = file.readBytes().also { if (corruptResponse) it[0] = (it[0].toInt() xor 1).toByte() }
+        val name = MessageDigest.getInstance("SHA-256")
+            .digest("${release.tag}\u0000${release.sha256}".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val cached = context.cacheDir.resolve("updates/update-$name.apk")
+        cached.parentFile!!.mkdirs()
+        clientField.set(manager, OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
+                .code(200).message("Synthetic native fixture").body(bytes.toResponseBody()).build()
+        }.build())
+        state.value = originalState.copy(available = release, ready = false)
+        try {
+            check(manager, cached)
+        } finally {
+            clientField.set(manager, originalClient)
+            state.value = originalState
+            cached.delete()
+            context.getSharedPreferences(manager.config.stateName, Context.MODE_PRIVATE).edit().clear().commit()
         }
     }
 
