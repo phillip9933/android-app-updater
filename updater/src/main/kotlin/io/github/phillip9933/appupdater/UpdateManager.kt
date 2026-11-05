@@ -263,8 +263,7 @@ class UpdateManager internal constructor(
         verifier.verify(part, release, digest)?.let { throw UpdateFailure(it) }
         ensureCurrent(epoch)
         val verified = apkFile(release, digest)
-        if (verified.isFile) {
-            if (verifier.verify(verified, release, digest) != null) throw UpdateFailure(UpdateError.STORAGE)
+        if (verified.isFile && verifier.verify(verified, release, digest) == null) {
             part.delete()
         } else if (!part.renameTo(verified)) {
             throw UpdateFailure(UpdateError.STORAGE)

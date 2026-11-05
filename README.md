@@ -8,6 +8,10 @@ Follow release scope and maturity separately from individual work. Dates are est
 
 A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
 
+## Candidate cache-recovery correction
+
+**0.2.2-beta.1** allows a fully verified fresh download to atomically replace a corrupted cached APK. Invalid new bytes still cannot replace an existing verified candidate. The public API and runtime dependencies are unchanged. Physical-device acceptance remains pending; this candidate must remain a prerelease. Published 0.2.1 bytes are unchanged.
+
 ## Security update
 
 **0.2.1** corrects [obsolete queued Wi-Fi work after a host upgrade](https://github.com/phillip9933/android-app-updater/issues/8) and adds build dependency locks and checksum verification. Earlier release assets remain immutable. No shared UI module is planned: each app owns its update UI.
