@@ -96,3 +96,23 @@ An end-to-end exporter check built the reviewed code in a temporary clean Git fi
 Kura reproduced a 0.2.1 failure: a verified fresh download could not replace a corrupted existing APK at the same cache path (STORAGE). Candidate **0.2.2-beta.1** reuses an existing candidate only when it verifies, otherwise atomically renames the already verified new part over the invalid entry. A rejected new response never replaces an existing valid candidate. Public API/runtime dependencies and all verification gates are unchanged.
 
 Local checks passed: **56 host tests**, **nine exporter regressions**, **four isolated dependency rejection checks**, formatting/static analysis, lint and release/probe/test APK builds. Two added native regressions compile; [#9](https://github.com/phillip9933/android-app-updater/issues/9) and the release tracker record subsequent exact-source CI, API26/35 native and consumer outcomes. No future pass is asserted here. Candidate publication remains prerelease while physical acceptance is pending, per RELEASING.md. No production signing or consuming-app release. AI assistance was used.
+
+## Stable 0.2.2 promotion — 6 November 2026
+
+The owner explicitly confirmed that physical-device testing had been completed
+and passed, asked this release task not to repeat it, and authorized publishing
+0.2.2 as latest stable. This is owner-supplied acceptance, not a new physical run
+observed by this release task. No new Pixel access, installation permission or
+production signing was used. No new migration run is claimed by this promotion;
+the historical upgrade results above and Kura candidate regression remain
+separately scoped evidence.
+
+The stable source changes only version metadata, exporter fixtures and release
+documentation from the tested beta.1 runtime. Public API, runtime dependencies,
+minSDK 26, identity/signature/hash checks and foreground installer consent are
+unchanged. The beta's independent CI passed 56 host tests, nine exporter
+regressions, four dependency checks and 15 native tests on each API26/35; Kura's
+published-byte recovery regression passed. Exact stable-revision CI and verified
+artifact/source digests are recorded in [release tracker #10](https://github.com/phillip9933/android-app-updater/issues/10)
+and the stable release notes after execution, without claiming future passes.
+Earlier distributed bytes remain immutable. AI assisted preparation and checks.

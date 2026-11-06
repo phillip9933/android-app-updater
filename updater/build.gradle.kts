@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.phillip9933"
-version = "0.2.2-beta.1"
+version = "0.2.2"
 
 android {
     namespace = "io.github.phillip9933.appupdater"

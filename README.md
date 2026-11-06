@@ -8,9 +8,9 @@ Follow release scope and maturity separately from individual work. Dates are est
 
 A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
 
-## Candidate cache-recovery correction
+## Cache-recovery correction
 
-**0.2.2-beta.1** allows a fully verified fresh download to atomically replace a corrupted cached APK. Invalid new bytes still cannot replace an existing verified candidate. The public API and runtime dependencies are unchanged. Physical-device acceptance remains pending; this candidate must remain a prerelease. Published 0.2.1 bytes are unchanged.
+**0.2.2** allows a fully verified fresh download to atomically replace a corrupted cached APK. Invalid new bytes still cannot replace an existing verified candidate. The public API and runtime dependencies are unchanged. The owner confirmed physical-device testing passed before authorizing stable promotion. Published 0.2.1 and 0.2.2-beta.1 bytes remain unchanged.
 
 ## Security update
 
@@ -20,7 +20,7 @@ Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable o
 
 ## Consume an explicit version
 
-Version **0.2.1** uses `io.github.phillip9933:android-updater:0.2.1` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
+Version **0.2.2** uses `io.github.phillip9933:android-updater:0.2.2` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
 
 Version 0.2.0 changes the package and Maven group. Update imports and dependency coordinates together. Reinitialize the updater after upgrading: its bootstrap preference namespace changes, so automatic checks start with the new registration. Existing application data is unaffected.
 
@@ -39,7 +39,7 @@ Retain and verify the bundle's SHA256SUMS before resolving dependencies, and rej
 
 ```kotlin
 dependencies {
-    implementation("io.github.phillip9933:android-updater:0.2.1")
+    implementation("io.github.phillip9933:android-updater:0.2.2")
 }
 
 val config = UpdateConfig(
@@ -80,6 +80,8 @@ The Maven repository is generated at `build/maven/`. After tests pass and review
 A release needs a clean source revision, passing host/static/lint checks and a signed native install/upgrade journey on API 26, API 35 and a physical device. Do not publish production credentials or app APKs from this repository.
 
 ## Local verification
+
+The cache-recovery candidate passed 56 host tests, nine exporter regressions, four dependency rejection checks and 15 native cases per API 26/35. The owner confirmed physical testing passed and authorized stable 0.2.2 on 6 November 2026; the release task did not repeat those physical tests. Exact-source stable CI and artifact verification are linked from [the release tracker](https://github.com/phillip9933/android-app-updater/issues/10).
 
 Version 0.2.1 passed 56 host tests, nine exporter regressions, four dependency rejection checks, and 13 native security cases per API 26/35. Signed synthetic host upgrades with retained data and worker recreation passed on both emulator APIs and Pixel 10 Pro / Android 17. The Pixel also passed 13 native cases for published 0.2.0 and the 0.2.1 correction, plus real Android permission denial, installer cancellation and explicit update confirmation. See [physical evidence and limits](docs/PHYSICAL_ACCEPTANCE.md) and [migration checks](docs/UPGRADE_ACCEPTANCE.md). These synthetic checks do not replace production-signed consumer acceptance.
 
