@@ -1,6 +1,7 @@
 package io.github.phillip9933.appupdater
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -17,10 +18,10 @@ class AndroidUpdateFeedTest {
         val result =
             select(
                 releases(
-                    release("android-v1.9.0", apk("raiun-android-1.9.0.apk")),
-                    release("android-v1.10.0", apk("raiun-android-1.10.0.apk")),
-                    release("android-v9.0.0-beta.10", apk("raiun-android-9.0.0-beta.10.apk"), prerelease = true),
-                    release("desktop-v99.0.0", apk("raiun-android-99.0.0.apk")),
+                    release("android-v1.9.0", asset("raiun-android-1.9.0.apk")),
+                    release("android-v1.10.0", asset("raiun-android-1.10.0.apk")),
+                    release("android-v9.0.0-beta.10", asset("raiun-android-9.0.0-beta.10.apk"), prerelease = true),
+                    release("desktop-v99.0.0", asset("raiun-android-99.0.0.apk")),
                 ),
                 AndroidUpdateChannel.STABLE,
             )
@@ -33,9 +34,9 @@ class AndroidUpdateFeedTest {
         val result =
             select(
                 releases(
-                    release("android-v2.0.0-beta.9", apk("raiun-android-2.0.0-beta.9.apk"), prerelease = true),
-                    release("android-v2.0.0-beta.10", apk("raiun-android-2.0.0-beta.10.apk"), prerelease = true),
-                    release("android-v1.99.0", apk("raiun-android-1.99.0.apk")),
+                    release("android-v2.0.0-beta.9", asset("raiun-android-2.0.0-beta.9.apk"), prerelease = true),
+                    release("android-v2.0.0-beta.10", asset("raiun-android-2.0.0-beta.10.apk"), prerelease = true),
+                    release("android-v1.99.0", asset("raiun-android-1.99.0.apk")),
                 ),
                 AndroidUpdateChannel.BETA,
             )
@@ -45,17 +46,17 @@ class AndroidUpdateFeedTest {
 
     @Test
     fun acceptsOnlyHistoricalReleaseTagsWithLegacyAssetName() {
-        val release = release("v0.9.3", apk("raiun-0.9.3.apk"))
+        val release = release("v0.9.3", asset("raiun-0.9.3.apk"))
         val result = select(releases(release), AndroidUpdateChannel.STABLE)
         assertEquals("raiun-0.9.3.apk", result?.assetName)
         assertNull(
-            select(releases(release("0.9.4", apk("raiun-0.9.4.apk"))), AndroidUpdateChannel.STABLE),
+            select(releases(release("0.9.4", asset("raiun-0.9.4.apk"))), AndroidUpdateChannel.STABLE),
         )
     }
 
     @Test
     fun rejectsWrongUrlCredentialsQueryAndFragment() {
-        val valid = apk("raiun-android-1.2.3.apk")
+        val valid = asset("raiun-android-1.2.3.apk")
         val badUrls =
             listOf(
                 "https://evil.example/phillip9933/raiun/releases/download/android-v1.2.3/raiun-android-1.2.3.apk",
@@ -75,71 +76,60 @@ class AndroidUpdateFeedTest {
 
     @Test
     fun rejectsDuplicateOrAmbiguousApksAndDebugUnsignedOrTestNames() {
-        val apk = apk("raiun-android-1.2.3.apk")
-        val duplicateName =
-            apk
-                .replace("\"assets\":[", "\"assets\":[")
-                .dropLast(1) + ",${asset("raiun-android-1.2.3.apk")}]}"
-        val multiple = apk.dropLast(1) + ",${asset("other.apk")}]}"
-        val invalidNames =
-            listOf("raiun-android-1.2.3-debug.apk", "raiun-android-1.2.3-unsigned.apk", "raiun-android-1.2.3-test.apk")
-        assertNull(
-            select(releases(release("android-v1.2.3", duplicateName)), AndroidUpdateChannel.STABLE),
-        )
-        assertNull(select(releases(release("android-v1.2.3", multiple)), AndroidUpdateChannel.STABLE))
-        invalidNames.forEach { name ->
-            assertNull(
-                select(releases(release("android-v1.2.3", asset(name))), AndroidUpdateChannel.STABLE),
-            )
+        val tag = "android-v1.2.3"
+        val expected = asset("raiun-android-1.2.3.apk")
+
+        fun selectAssets(vararg assets: String) = select(releases(release(tag, *assets)), AndroidUpdateChannel.STABLE)
+
+        assertNotNull(selectAssets(expected))
+        assertNull(selectAssets(expected, expected))
+        assertNull(selectAssets(expected, asset("other.apk")))
+        for (kind in listOf("debug", "unsigned", "test")) {
+            val prefix = "raiun-$kind-"
+            val configured = config.copy(assetPrefix = prefix)
+            val feed = releases(release(tag, asset("${prefix}1.2.3.apk")))
+            assertNull(AndroidUpdateFeed.select(feed, AndroidUpdateChannel.STABLE, configured))
         }
     }
 
     @Test
-    fun rejectsInvalidTagsSizesAndMalformedDigest() {
+    fun rejectsInvalidTagsAndAssetSizes() {
+        val tag = "android-v1.2.3"
+        val name = "raiun-android-1.2.3.apk"
+        assertNotNull(select(releases(release(tag, asset(name))), AndroidUpdateChannel.STABLE))
         val malformed =
             listOf("android-v1.02.3", "android-v-1.2.3", "android-v999999999999999999999.0.0", "android-v1.2.3+build")
-        malformed.forEach { tag ->
-            val version = tag.removePrefix("android-v")
+        malformed.forEach { invalid ->
+            val version = invalid.removePrefix("android-v")
             assertNull(
-                select(
-                    releases(release(tag, apk("raiun-android-$version.apk"))),
-                    AndroidUpdateChannel.STABLE,
-                ),
+                select(releases(release(invalid, asset("raiun-android-$version.apk"))), AndroidUpdateChannel.STABLE),
             )
         }
-        assertNull(
+        for (size in listOf(0L, 600L * 1024 * 1024)) {
+            assertNull(select(releases(release(tag, asset(name, size = size))), AndroidUpdateChannel.STABLE))
+        }
+    }
+
+    @Test
+    fun digestMayBeAbsentOrNullButMustOtherwiseBeASha256String() {
+        fun parse(digestJson: String?) =
             select(
-                releases(release("android-v1.2.3", asset("raiun-android-1.2.3.apk", size = 0))),
+                releases(release("android-v1.2.3", asset("raiun-android-1.2.3.apk", digestJson = digestJson))),
                 AndroidUpdateChannel.STABLE,
-            ),
-        )
-        assertNull(
-            select(
-                releases(
-                    release(
-                        "android-v1.2.3",
-                        asset(
-                            "raiun-android-1.2.3.apk",
-                            size =
-                                600L * 1024 * 1024,
-                        ),
-                    ),
-                ),
-                AndroidUpdateChannel.STABLE,
-            ),
-        )
-        assertNull(
-            select(
-                releases(release("android-v1.2.3", asset("raiun-android-1.2.3.apk", digest = "sha256:bad"))),
-                AndroidUpdateChannel.STABLE,
-            ),
-        )
+            )
+        assertNull(requireNotNull(parse(null)).sha256)
+        assertNull(requireNotNull(parse("null")).sha256)
+        val hash = "AB".repeat(32)
+        assertEquals(hash.lowercase(), requireNotNull(parse("\"sha256:$hash\"")).sha256)
+        for (invalid in listOf("0", "true", "{}", "[]", "\"sha256:bad\"")) {
+            assertNull(invalid, parse(invalid))
+        }
     }
 
     private fun releases(vararg releases: String) = "[${releases.joinToString(",")}]"
 
     @Test fun rejectsJsonTypeConfusionAndInjectedTags() {
-        val valid = releases(release("android-v1.2.3", apk("raiun-android-1.2.3.apk")))
+        val valid = releases(release("android-v1.2.3", asset("raiun-android-1.2.3.apk")))
         val confused =
             listOf(
                 valid.replace("\"draft\":false", "\"draft\":\"false\""),
@@ -156,26 +146,24 @@ class AndroidUpdateFeedTest {
 
     private fun release(
         tag: String,
-        assets: String,
+        vararg assets: String,
         prerelease: Boolean = false,
     ): String {
-        val correctedAssets = assets.replace("/download/android-v1.2.3/", "/download/$tag/")
+        val correctedAssets = assets.joinToString(",", "[", "]").replace("/download/android-v1.2.3/", "/download/$tag/")
         return """{
             "tag_name":"$tag", "draft":false, "prerelease":$prerelease, "body":"notes",
             "published_at":"2026-01-01T00:00:00Z", "assets":$correctedAssets
         }"""
     }
 
-    private fun apk(name: String) = "[${asset(name)}]"
-
     private fun asset(
         name: String,
         size: Long = 1234,
-        digest: String? = null,
+        digestJson: String? = null,
     ): String {
         val url = "https://github.com/phillip9933/raiun/releases/download/android-v1.2.3/$name"
-        val digestJson = digest?.let { ",\"digest\":\"$it\"" }.orEmpty()
-        return "{\"name\":\"$name\",\"size\":$size,\"browser_download_url\":\"$url\"$digestJson}"
+        val digestField = digestJson?.let { ",\"digest\":$it" }.orEmpty()
+        return "{\"name\":\"$name\",\"size\":$size,\"browser_download_url\":\"$url\"$digestField}"
     }
 
     private companion object {

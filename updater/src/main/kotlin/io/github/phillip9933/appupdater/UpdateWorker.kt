@@ -18,11 +18,7 @@ class UpdateWorker(
             if (!manager.matchesWorkConfig(inputData.getString("config_id"))) return@withContext Result.success()
             if (!manager.automaticChecksEnabled()) return@withContext Result.success()
             try {
-                val attempted = manager.checkNow(force = false)
-                if (attempted &&
-                    manager.state.value.error == UpdateError.NETWORK &&
-                    runAttemptCount < 3
-                ) {
+                if (manager.workerCheckNeedsRetry(isRetry = runAttemptCount > 0) && runAttemptCount < 3) {
                     Result.retry()
                 } else {
                     Result.success()

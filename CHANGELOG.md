@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- Preserve the 0.2.2 host integration API, namespace, runtime dependencies and minimum Android API 26. Host apps continue to own all UI and installation consent.
+- Validate the downloaded APK’s signer before inspecting its manifest resources. Grant the verified APK to an explicit system installation handler.
+- Preserve settings during download progress, retry transient background checks, and bind queued downloads to their selected channel and tag. Refresh the ready state when the asset digest or size changes.
+- Reject malformed feed digests, correct prerelease ordering, and validate portable filenames during bundle export.
+
 ## 0.2.0 — 2026-10-24 (prerelease)
 
 - Replace the personal-domain package and Maven group with `io.github.phillip9933`.

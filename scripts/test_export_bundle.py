@@ -17,12 +17,12 @@ FAKE_GRADLE = '''#!/usr/bin/env python3
 from pathlib import Path
 import json, zipfile
 root = Path.cwd()
-p = root/'build/maven/io/github/phillip9933/android-updater/0.2.2'
+p = root/'build/maven/io/github/phillip9933/android-updater/1.0.0'
 p.mkdir(parents=True)
 for suffix in ('.aar', '-sources.jar'):
- with zipfile.ZipFile(p/('android-updater-0.2.2'+suffix),'w') as z:z.writestr('fresh.txt','built from clean snapshot')
-(p/'android-updater-0.2.2.pom').write_text('<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>io.github.phillip9933</groupId><artifactId>android-updater</artifactId><version>0.2.2</version></project>')
-(p/'android-updater-0.2.2.module').write_text(json.dumps({'component':{'group':'io.github.phillip9933','module':'android-updater','version':'0.2.2'}}))
+ with zipfile.ZipFile(p/('android-updater-1.0.0'+suffix),'w') as z:z.writestr('fresh.txt','built from clean snapshot')
+(p/'android-updater-1.0.0.pom').write_text('<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>io.github.phillip9933</groupId><artifactId>android-updater</artifactId><version>1.0.0</version></project>')
+(p/'android-updater-1.0.0.module').write_text(json.dumps({'component':{'group':'io.github.phillip9933','module':'android-updater','version':'1.0.0'}}))
 '''
 
 
@@ -33,7 +33,7 @@ class ExportSecurityTest(unittest.TestCase):
         self.root = Path(self.temp.name) / "repo"
         self.root.mkdir()
         (self.root / "updater").mkdir()
-        (self.root / "updater/build.gradle.kts").write_text('group = "io.github.phillip9933"\nversion = "0.2.2"\n')
+        (self.root / "updater/build.gradle.kts").write_text('group = "io.github.phillip9933"\nversion = "1.0.0"\n')
         (self.root / ".gitignore").write_text('build/\nignored-private-note.txt\n')
         (self.root / "LICENSE").write_text("Synthetic license")
         (self.root / "gradlew").write_text(FAKE_GRADLE)
@@ -77,13 +77,13 @@ class ExportSecurityTest(unittest.TestCase):
         (self.root / "ignored-private-note.txt").write_text("synthetic ignored private text")
         stale = self.root / "build/maven" / exporter.COORDINATE
         stale.mkdir(parents=True)
-        (stale / "android-updater-0.2.2.aar").write_text("synthetic stale artifact")
+        (stale / "android-updater-1.0.0.aar").write_text("synthetic stale artifact")
         self.export()
-        with zipfile.ZipFile(self.destination / "android-app-updater-0.2.2-source.zip") as z:
+        with zipfile.ZipFile(self.destination / "android-app-updater-1.0.0-source.zip") as z:
             self.assertFalse(any("private-note" in n or "/build/" in n for n in z.namelist()))
-            self.assertEqual(0o644, z.getinfo("android-app-updater-0.2.2/LICENSE").external_attr >> 16)
-            self.assertEqual(0o755, z.getinfo("android-app-updater-0.2.2/gradlew").external_attr >> 16)
-        with zipfile.ZipFile(self.destination / "maven" / exporter.COORDINATE / "android-updater-0.2.2.aar") as z:
+            self.assertEqual(0o644, z.getinfo("android-app-updater-1.0.0/LICENSE").external_attr >> 16)
+            self.assertEqual(0o755, z.getinfo("android-app-updater-1.0.0/gradlew").external_attr >> 16)
+        with zipfile.ZipFile(self.destination / "maven" / exporter.COORDINATE / "android-updater-1.0.0.aar") as z:
             self.assertEqual(b"built from clean snapshot", z.read("fresh.txt"))
         self.assertEqual(self.git("rev-parse", "HEAD"), (self.destination / "SOURCE_REVISION.txt").read_text().strip())
 
@@ -93,9 +93,15 @@ class ExportSecurityTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "regular files"):
             self.export()
 
+    def test_portable_paths_reject_ambiguous_components(self):
+        for path in ("dir\\file", "volume:name", "dir/./file", "dir//file", "name\t", "name.", "NUL.txt"):
+            with self.subTest(path=path), self.assertRaisesRegex(SystemExit, "Unsafe path"):
+                exporter.portable_parts(path)
+        self.assertEqual(("dir", "gradlew.bat"), exporter.portable_parts("dir/gradlew.bat"))
+
     def test_wrong_committed_version_rejected(self):
         p = self.root / "updater/build.gradle.kts"
-        p.write_text(p.read_text().replace("0.2.2", "0.1.3"))
+        p.write_text(p.read_text().replace("1.0.0", "0.1.3"))
         self.commit()
         with self.assertRaisesRegex(SystemExit, "publication identity"):
             self.export()

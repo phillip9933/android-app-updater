@@ -91,8 +91,8 @@ data class UpdateConfig(
             for (index in 0 until minOf(a.prerelease.size, b.prerelease.size)) {
                 val left = a.prerelease[index]
                 val right = b.prerelease[index]
-                val leftNumeric = left.toBigIntegerOrNull()
-                val rightNumeric = right.toBigIntegerOrNull()
+                val leftNumeric = left.takeIf { it.all(Char::isDigit) }?.toBigInteger()
+                val rightNumeric = right.takeIf { it.all(Char::isDigit) }?.toBigInteger()
                 val result =
                     when {
                         leftNumeric != null && rightNumeric != null -> compareValues(leftNumeric, rightNumeric)

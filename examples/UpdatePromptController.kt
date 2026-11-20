@@ -129,7 +129,7 @@ class UpdatePromptController(
                             updater.state.value.available?.tag == selectedTag &&
                             activity.packageManager.canRequestPackageInstalls()
                         ) {
-                            if (intent != null) launchSafely(intent) else notifyUser("Update verification failed")
+                            if (intent != null) launchSafely(intent) else notifyUser("Unable to prepare the update for installation")
                         }
                     } finally {
                         preparing = false

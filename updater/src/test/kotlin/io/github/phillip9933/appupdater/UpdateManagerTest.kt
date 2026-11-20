@@ -6,6 +6,8 @@ import android.content.SharedPreferences
 import androidx.work.Data
 import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
+import androidx.work.testing.WorkManagerTestInitHelper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -266,6 +268,91 @@ class UpdateManagerTest {
             assertEquals(1, attempts.get())
             manager.checkNow()
             assertEquals(2, attempts.get())
+        }
+
+    @Test fun `worker retries a failed fetch inside the throttle window and respects opt out`() =
+        runBlocking {
+            WorkManagerTestInitHelper.initializeTestWorkManager(context)
+            var attempts = 0
+            val manager =
+                UpdateManager(context, config, {
+                    attempts++
+                    if (attempts == 1) throw java.io.IOException()
+                    release
+                }, { "1.0.0" })
+
+            assertTrue(manager.workerCheckNeedsRetry(isRetry = false))
+            assertFalse(manager.workerCheckNeedsRetry(isRetry = false))
+            assertEquals(1, attempts)
+            assertFalse(manager.workerCheckNeedsRetry(isRetry = true))
+            assertEquals(2, attempts)
+            assertEquals(release, manager.state.value.available)
+            manager.setAutomaticChecks(false)
+            assertFalse(manager.workerCheckNeedsRetry(isRetry = true))
+            assertEquals(2, attempts)
+        }
+
+    @Test fun `refresh preserves verified bytes only while the same tag still describes them`() =
+        runBlocking {
+            WorkManagerTestInitHelper.initializeTestWorkManager(context)
+            var advertised = release.copy(sha256 = null)
+            val manager = UpdateManager(context, config, { advertised }, { "1.0.0" })
+            manager.checkNow()
+            val prefs = context.getSharedPreferences(config.stateName, Context.MODE_PRIVATE)
+            val cachedDigest = requireNotNull(release.sha256)
+            val state = manager.state as MutableStateFlow<UpdateState>
+
+            fun markReady() {
+                prefs
+                    .edit()
+                    .putString("ready_tag", release.tag)
+                    .putString("ready_sha", cachedDigest)
+                    .commit()
+                state.value = state.value.copy(ready = true)
+            }
+
+            markReady()
+            advertised = release.copy(notes = "Corrected notes", sha256 = cachedDigest.uppercase())
+            manager.checkNow()
+            assertTrue(manager.state.value.ready)
+            assertEquals(cachedDigest, prefs.getString("ready_sha", null))
+
+            advertised = release.copy(sha256 = "cd".repeat(32))
+            manager.checkNow()
+            assertFalse(manager.state.value.ready)
+            assertNull(prefs.getString("ready_sha", null))
+
+            advertised = release
+            manager.checkNow()
+            markReady()
+            advertised = release.copy(sizeBytes = release.sizeBytes + 1)
+            manager.checkNow()
+            assertFalse(manager.state.value.ready)
+            assertNull(prefs.getString("ready_tag", null))
+        }
+
+    @Test fun `obsolete download work finishes before testing network eligibility for the new selection`() =
+        runBlocking {
+            WorkManagerTestInitHelper.initializeTestWorkManager(context)
+            var advertised = release
+            val prefs = context.getSharedPreferences(config.stateName, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("wifi", true).commit()
+            val manager = UpdateManager(context, config, { advertised }, { "1.0.0" })
+            manager.checkNow()
+            advertised =
+                release.copy(
+                    tag = "android-v3.0.0",
+                    assetName = release.assetName.replace("2.0.0", "3.0.0"),
+                    downloadUrl = release.downloadUrl.replace("2.0.0", "3.0.0"),
+                )
+            manager.checkNow()
+            org.robolectric.Shadows.shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(
+                android.Manifest.permission.ACCESS_NETWORK_STATE,
+            )
+            assertTrue(manager.automaticDownload(AndroidUpdateChannel.STABLE, release.tag))
+            assertTrue(manager.automaticDownload(AndroidUpdateChannel.BETA, advertised.tag))
+            assertFalse(manager.automaticDownload(AndroidUpdateChannel.STABLE, advertised.tag))
+            assertNull(manager.state.value.error)
         }
 
     @Test fun `cache pruning keeps ready and recent previous but removes stale files after upgrade`() =

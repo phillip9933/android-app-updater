@@ -38,22 +38,30 @@ internal class UpdateApkVerifier(
         }
         val installed = installedPackage() ?: return UpdateError.INVALID_APK
         val candidate = archivePackage(file) ?: return UpdateError.INVALID_APK
-        val manifestDebuggable = archiveManifestDebuggable(file, candidate) ?: return UpdateError.INVALID_APK
-        return policy
-            .validApkMetadata(
-                release,
-                context.packageName,
-                UpdatePolicy.InstalledApk(versionCode(installed), signers(installed)),
-                UpdatePolicy.CandidateApk(
-                    candidate.packageName,
-                    versionCode(candidate),
-                    candidate.versionName,
-                    candidate.applicationInfo?.minSdkVersion ?: Int.MAX_VALUE,
-                    candidate.applicationInfo?.flags?.and(ApplicationInfo.FLAG_DEBUGGABLE) != 0 || manifestDebuggable,
-                    signers(candidate),
-                ),
-                Build.VERSION.SDK_INT,
-            ).asUpdateError()
+        val applicationInfo = candidate.applicationInfo ?: return UpdateError.INVALID_APK
+        val metadataFailure =
+            policy
+                .validApkMetadata(
+                    release,
+                    context.packageName,
+                    UpdatePolicy.InstalledApk(versionCode(installed), signers(installed)),
+                    UpdatePolicy.CandidateApk(
+                        candidate.packageName,
+                        versionCode(candidate),
+                        candidate.versionName,
+                        applicationInfo.minSdkVersion,
+                        applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0,
+                        signers(candidate),
+                    ),
+                    Build.VERSION.SDK_INT,
+                ).asUpdateError()
+        if (metadataFailure != null) return metadataFailure
+        // Only inspect resources after package metadata and the signer set have passed.
+        return when (archiveManifestDebuggable(file, applicationInfo)) {
+            true -> UpdateError.DEBUG_APK
+            false -> null
+            null -> UpdateError.INVALID_APK
+        }
     }
 
     private fun sha256(file: File): String {
@@ -124,9 +132,8 @@ internal class UpdateApkVerifier(
     /** Archive PackageInfo flags can omit manifest-derived values on API 35; read the APK's binary manifest. */
     private fun archiveManifestDebuggable(
         file: File,
-        candidate: PackageInfo,
+        archiveInfo: ApplicationInfo,
     ): Boolean? {
-        val archiveInfo = candidate.applicationInfo ?: return null
         val application =
             ApplicationInfo(archiveInfo).apply {
                 sourceDir = file.absolutePath

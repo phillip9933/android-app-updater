@@ -1,5 +1,11 @@
 # Testing and acceptance
 
+## SDK 1.0.0 — 20 November 2026
+
+The local release AAR SHA-256 was `5be67e6bc30c370347631d5a1f3208f11b6f807f3a1aef84f6a1d615cb414c70`. All 63 JVM tests and ten exporter tests passed. The 15 native verifier cases passed on API 26 and 35 emulators and a physical Pixel 6 Pro on API 37. The release lint task passed with one warning about the application-context singleton.
+
+Synthetic hosts linked against published 0.2.2 and the 1.0.0 candidate passed in-place upgrades on both emulator APIs, with automatic checks enabled and disabled. The tests verified private data, preferences, obsolete work cancellation and worker bootstrap after process recreation. On the Pixel, a separate offline synthetic host passed denial, process recreation, installer Cancel, and a user-confirmed same-signer Update with retained private data. Temporary install permission was restored and the session-created packages were removed. These hosts used synthetic data and disposable test signing. See [release tracker #12](https://github.com/phillip9933/android-app-updater/issues/12) for final CI and artifact verification. AI assisted implementation and verification.
+
 Physical acceptance completed on 26 October 2026 after the owner-approved Pixel
 handoff. See [physical results and fixture limits](PHYSICAL_ACCEPTANCE.md): 13
 native tests passed for published 0.2.0 and again for local 0.2.1, real installer

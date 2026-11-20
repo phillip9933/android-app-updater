@@ -74,6 +74,11 @@ class UpdatePolicyTest {
         assertTrue(policy.isNewer("1.0.0-beta.10", "1.0.0-beta.2"))
     }
 
+    @Test fun `hyphenated prerelease identifiers have higher precedence than digits`() {
+        assertTrue(policy.isNewer("1.0.0--1", "1.0.0-1"))
+        assertFalse(policy.isNewer("1.0.0-1", "1.0.0--1"))
+    }
+
     @Test fun `hash mismatch rejects candidate bytes`() {
         val expected = "aa".repeat(32)
         assertTrue(policy.matchingHash(expected.uppercase(), expected))

@@ -8,6 +8,10 @@ Follow release scope and maturity separately from individual work. Dates are est
 
 A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
 
+## 1.0 API and compatibility
+
+1.x supports the host-facing Kotlin API for configuring public GitHub updates, selecting a channel, observing update state, controlling checks and downloads, and preparing a foreground installer intent. Apps upgrading from 0.2.2 can keep their existing imports, configuration and preference names. Keep the installer intent's explicit component and read grant intact. A device without an eligible system installation handler returns no install intent.
+
 ## Cache-recovery correction
 
 **0.2.2** allows a fully verified fresh download to atomically replace a corrupted cached APK. Invalid new bytes still cannot replace an existing verified candidate. The public API and runtime dependencies are unchanged. The owner confirmed physical-device testing passed before authorizing stable promotion. Published 0.2.1 and 0.2.2-beta.1 bytes remain unchanged.
@@ -20,7 +24,7 @@ Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable o
 
 ## Consume an explicit version
 
-Version **0.2.2** uses `io.github.phillip9933:android-updater:0.2.2` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
+Version **1.0.0** uses `io.github.phillip9933:android-updater:1.0.0` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
 
 Version 0.2.0 changes the package and Maven group. Update imports and dependency coordinates together. Reinitialize the updater after upgrading: its bootstrap preference namespace changes, so automatic checks start with the new registration. Existing application data is unaffected.
 
@@ -39,7 +43,7 @@ Retain and verify the bundle's SHA256SUMS before resolving dependencies, and rej
 
 ```kotlin
 dependencies {
-    implementation("io.github.phillip9933:android-updater:0.2.2")
+    implementation("io.github.phillip9933:android-updater:1.0.0")
 }
 
 val config = UpdateConfig(

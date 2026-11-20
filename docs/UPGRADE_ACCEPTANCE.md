@@ -33,6 +33,8 @@ python3 scripts/run_upgrade_acceptance.py \
   --output /absolute/path/to/new-evidence-directory
 ```
 
+Use `--legacy-version 0.2.2` with the published 0.2.2 AAR to exercise the current namespace across a host upgrade. The fixture checks that the obsolete download disappears even when the worker class name stays the same.
+
 For a local correction, also pass `--candidate-sha256 <reviewed hash>` and a fresh
 `--destination build/upgrade-acceptance-fixed` during preparation, then pass that
 project path to Gradle and `--project` to the runner. Candidate input hashes are

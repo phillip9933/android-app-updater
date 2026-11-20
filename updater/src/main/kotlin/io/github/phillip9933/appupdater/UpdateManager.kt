@@ -25,6 +25,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -132,11 +133,12 @@ class UpdateManager internal constructor(
     val state: StateFlow<UpdateState> = _state
 
     init {
-        _state.value =
-            _state.value.copy(
-                offer = shouldOffer(_state.value.available),
+        _state.update {
+            it.copy(
+                offer = shouldOffer(it.available),
                 error = UpdateError.STORAGE.takeUnless { registrationReady },
             )
+        }
     }
 
     /** Schedule public GitHub checks and refresh a previously verified private-cache APK. */
@@ -148,29 +150,41 @@ class UpdateManager internal constructor(
         }
         scheduleChecks()
         scope.launch {
-            restoreReady()
-            operation.withLock { pruneCache() }
+            operation.withLock {
+                restoreReady()
+                pruneCache()
+            }
             scheduleAutomaticDownload()
             checkNow(force = false)
         }
     }
 
+    private enum class CheckMode { MANUAL, AUTOMATIC, RETRY }
+
+    private enum class CheckResult { SKIPPED, CHECKED, NETWORK_ERROR }
+
     suspend fun checkNow(force: Boolean = true): Boolean =
+        checkFeed(if (force) CheckMode.MANUAL else CheckMode.AUTOMATIC) != CheckResult.SKIPPED
+
+    internal suspend fun workerCheckNeedsRetry(isRetry: Boolean): Boolean =
+        checkFeed(if (isRetry) CheckMode.RETRY else CheckMode.AUTOMATIC) == CheckResult.NETWORK_ERROR
+
+    private suspend fun checkFeed(mode: CheckMode): CheckResult =
         withContext(Dispatchers.IO) {
-            if (!registrationReady) return@withContext false
+            if (!registrationReady) return@withContext CheckResult.SKIPPED
             operation.withLock {
-                if (_state.value.downloading) return@withLock false
-                if (!force && !_state.value.automaticChecks) return@withLock false
+                if (_state.value.downloading) return@withLock CheckResult.SKIPPED
+                if (mode != CheckMode.MANUAL && !_state.value.automaticChecks) return@withLock CheckResult.SKIPPED
                 val now = System.currentTimeMillis()
-                if (!force &&
+                if (mode == CheckMode.AUTOMATIC &&
                     now - prefs.updateLong("attempted", 0L) in 0 until CHECK_INTERVAL_MS
                 ) {
-                    return@withLock false
+                    return@withLock CheckResult.SKIPPED
                 }
                 prefs.edit().putLong("attempted", now).apply()
                 val epoch = generation.get()
                 val channel = _state.value.channel
-                _state.value = _state.value.copy(checking = true, error = null)
+                _state.update { it.copy(checking = true, error = null) }
                 try {
                     val release =
                         latestRelease(channel)
@@ -182,73 +196,117 @@ class UpdateManager internal constructor(
                                     )
                             }
                     synchronized(this@UpdateManager) {
-                        if (epoch != generation.get()) return@withLock false
-                        val old = _state.value.available
-                        if (old?.tag != release?.tag) clearReady()
+                        if (epoch != generation.get()) return@withLock CheckResult.SKIPPED
+                        invalidateChangedAsset(release)
                         saveRelease(release, channel)
                         val checked = System.currentTimeMillis()
                         prefs.edit().putLong("checked", checked).apply()
-                        _state.value =
-                            _state.value.copy(
+                        _state.update {
+                            it.copy(
                                 available = release,
                                 offer = shouldOffer(release),
-                                ready =
-                                    old?.tag == release?.tag && _state.value.ready,
                                 lastChecked = checked,
                                 error = null,
                             )
+                        }
                         pruneCache()
                         scheduleAutomaticDownload()
                     }
-                } catch (_: IOException) {
-                    _state.value = _state.value.copy(error = UpdateError.NETWORK)
+                    CheckResult.CHECKED
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
-                    _state.value = _state.value.copy(error = UpdateError.NETWORK)
+                    _state.update { it.copy(error = UpdateError.NETWORK) }
+                    CheckResult.NETWORK_ERROR
                 } finally {
-                    _state.value = _state.value.copy(checking = false)
+                    _state.update { it.copy(checking = false) }
                 }
-                true
             }
         }
 
-    suspend fun download() = downloadInternal(automatic = false)
+    private fun invalidateChangedAsset(release: AndroidUpdateRelease?) {
+        val old = _state.value.available
+        val cachedDigest = prefs.updateString("ready_sha", null)
+        val digestChanged = cachedDigest != null && !policy.matchingHash(cachedDigest, release?.sha256)
+        if (old?.tag != release?.tag || old?.sizeBytes != release?.sizeBytes || digestChanged) clearReady()
+    }
 
-    // Distinct catch branches preserve typed failures and coroutine cancellation for callers.
-    @Suppress("CyclomaticComplexMethod")
-    private suspend fun downloadInternal(automatic: Boolean) =
+    suspend fun download() {
+        downloadInternal()
+    }
+
+    internal suspend fun automaticDownload(
+        channel: AndroidUpdateChannel,
+        tag: String,
+    ): Boolean = downloadInternal(channel, tag)
+
+    private suspend fun downloadInternal(
+        channel: AndroidUpdateChannel? = null,
+        tag: String? = null,
+    ): Boolean =
         withContext(Dispatchers.IO) {
-            if (!registrationReady) return@withContext
+            if (!registrationReady) return@withContext true
             operation.withLock {
-                val release = _state.value.available ?: return@withLock
-                if (!policy.validRelease(release) || _state.value.ready) return@withLock
-                if (automatic && (!_state.value.wifiDownload || !hasWifiTransport())) return@withLock
-                val epoch = generation.incrementAndGet()
-                activeAutomaticTag = release.tag.takeIf { automatic }
-                _state.value = _state.value.copy(downloading = true, bytesDownloaded = 0, ready = false, error = null)
-                try {
-                    storeDownloadedApk(release, epoch)
-                } catch (e: CancellationException) {
-                    partFile().delete()
-                    if (epoch == generation.get()) _state.value = _state.value.copy(error = UpdateError.CANCELLED)
-                    throw e
-                } catch (e: UpdateFailure) {
-                    partFile().delete()
-                    if (epoch == generation.get()) _state.value = _state.value.copy(error = e.kind)
-                } catch (_: IOException) {
-                    partFile().delete()
-                    if (epoch == generation.get()) _state.value = _state.value.copy(error = UpdateError.DOWNLOAD_FAILED)
-                } catch (_: Exception) {
-                    partFile().delete()
-                    if (epoch == generation.get()) _state.value = _state.value.copy(error = UpdateError.INVALID_APK)
-                } finally {
-                    activeCall = null
-                    activeAutomaticTag = null
-                    _state.value = _state.value.copy(downloading = false)
-                }
+                val automatic = channel != null
+                // A worker may be the first caller after process recreation.
+                if (automatic) restoreReady()
+                val (release, epoch) =
+                    synchronized(this@UpdateManager) {
+                        val snapshot = _state.value
+                        val selected = snapshot.available ?: return@withLock true
+                        if (snapshot.ready || !policy.validRelease(selected)) return@withLock true
+                        if (automatic) {
+                            if (!snapshot.wifiDownload ||
+                                snapshot.channel != channel ||
+                                selected.tag != tag
+                            ) {
+                                return@withLock true
+                            }
+                            if (!hasWifiTransport()) return@withLock false
+                        }
+                        activeAutomaticTag = selected.tag.takeIf { automatic }
+                        val epoch = generation.incrementAndGet()
+                        _state.update { it.copy(downloading = true, bytesDownloaded = 0, ready = false, error = null) }
+                        selected to epoch
+                    }
+                performDownload(release, epoch)
             }
         }
+
+    /** Returns false for transient download failures that a worker can retry. */
+    private suspend fun performDownload(
+        release: AndroidUpdateRelease,
+        epoch: Long,
+    ): Boolean {
+        val failure =
+            try {
+                storeDownloadedApk(release, epoch)
+                null
+            } catch (e: CancellationException) {
+                recordDownloadFailure(epoch, UpdateError.CANCELLED)
+                throw e
+            } catch (e: UpdateFailure) {
+                e.kind
+            } catch (_: IOException) {
+                UpdateError.DOWNLOAD_FAILED
+            } catch (_: Exception) {
+                UpdateError.INVALID_APK
+            } finally {
+                activeCall = null
+                activeAutomaticTag = null
+                _state.update { it.copy(downloading = false) }
+            }
+        if (failure != null) recordDownloadFailure(epoch, failure)
+        return failure != UpdateError.DOWNLOAD_FAILED && failure != UpdateError.NETWORK
+    }
+
+    @Synchronized private fun recordDownloadFailure(
+        epoch: Long,
+        error: UpdateError,
+    ) {
+        partFile().delete()
+        if (epoch == generation.get()) _state.update { it.copy(error = error) }
+    }
 
     // File, metadata, and generation checks must fail before a ready marker is persisted.
     @Suppress("ThrowsCount")
@@ -276,7 +334,7 @@ class UpdateManager internal constructor(
                 .putString("ready_tag", release.tag)
                 .putString("ready_sha", digest)
                 .apply()
-            _state.value = _state.value.copy(ready = true, error = null)
+            _state.update { it.copy(ready = true, error = null) }
             pruneCache()
         }
     }
@@ -284,10 +342,10 @@ class UpdateManager internal constructor(
     @Synchronized fun cancelDownload() {
         generation.incrementAndGet()
         activeCall?.cancel()
-        _state.value = _state.value.copy(downloading = false, bytesDownloaded = 0, error = UpdateError.CANCELLED)
+        _state.update { it.copy(downloading = false, bytesDownloaded = 0, error = UpdateError.CANCELLED) }
     }
 
-    /** Reverify under the operation lease; caller confirms and launches only in the foreground. */
+    /** Reverify and target a system installer, or return null if none is available. Launch only in the foreground. */
     suspend fun prepareInstall(): Intent? =
         withContext(Dispatchers.IO) {
             if (!registrationReady) return@withContext null
@@ -299,47 +357,44 @@ class UpdateManager internal constructor(
                 val digest = prefs.updateString("ready_sha", null) ?: return@withLock null
                 val file = apkFile(release, digest)
                 if (prefs.updateString("ready_tag", null) != release.tag || !file.isFile) {
-                    _state.value = _state.value.copy(ready = false, error = UpdateError.STORAGE)
+                    _state.update { it.copy(ready = false, error = UpdateError.STORAGE) }
                     return@withLock null
                 }
                 val failure = verifier.verify(file, release, digest)
                 synchronized(this@UpdateManager) {
                     if (failure != null || epoch != generation.get() || _state.value.available?.tag != release.tag) {
-                        _state.value = _state.value.copy(ready = false, error = failure ?: UpdateError.CANCELLED)
+                        _state.update { it.copy(ready = false, error = failure ?: UpdateError.CANCELLED) }
                         return@withLock null
                     }
-                    try {
-                        val intent =
-                            Intent(Intent.ACTION_VIEW)
-                                .setDataAndType(
-                                    FileProvider.getUriForFile(context, "${context.packageName}.android-updates", file),
-                                    "application/vnd.android.package-archive",
-                                ).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        prefs
-                            .edit()
-                            .putString(
-                                "handoff_file",
-                                file.name,
-                            ).putLong("handoff_at", System.currentTimeMillis())
-                            .apply()
-                        intent
-                    } catch (_: IllegalArgumentException) {
-                        _state.value = _state.value.copy(error = UpdateError.STORAGE)
-                        null
-                    }
+                    prepareInstallerHandoff(file)
                 }
             }
         }
 
-    fun setAutomaticChecks(enabled: Boolean) {
+    private fun prepareInstallerHandoff(file: File): Intent? =
+        try {
+            val apk = FileProvider.getUriForFile(context, "${context.packageName}.android-updates", file)
+            UpdateInstaller.prepareIntent(context.packageManager, apk)?.also {
+                prefs
+                    .edit()
+                    .putString("handoff_file", file.name)
+                    .putLong("handoff_at", System.currentTimeMillis())
+                    .apply()
+            }
+        } catch (_: IllegalArgumentException) {
+            _state.update { it.copy(error = UpdateError.STORAGE) }
+            null
+        }
+
+    @Synchronized fun setAutomaticChecks(enabled: Boolean) {
         prefs.edit().putBoolean("automatic", enabled).apply()
-        _state.value = _state.value.copy(automaticChecks = enabled)
+        _state.update { it.copy(automaticChecks = enabled) }
         scheduleChecks()
     }
 
-    fun setWifiDownload(enabled: Boolean) {
+    @Synchronized fun setWifiDownload(enabled: Boolean) {
         prefs.edit().putBoolean("wifi", enabled).apply()
-        _state.value = _state.value.copy(wifiDownload = enabled)
+        _state.update { it.copy(wifiDownload = enabled) }
         if (enabled) {
             scheduleAutomaticDownload()
         } else {
@@ -361,8 +416,8 @@ class UpdateManager internal constructor(
             .putLong("checked", 0)
             .putLong("attempted", 0)
             .apply()
-        _state.value =
-            _state.value.copy(
+        _state.update {
+            it.copy(
                 channel = channel,
                 available = null,
                 offer = false,
@@ -370,6 +425,7 @@ class UpdateManager internal constructor(
                 error = null,
                 lastChecked = 0,
             )
+        }
         val epoch = generation.get()
         scope.launch {
             operation.withLock {
@@ -381,10 +437,10 @@ class UpdateManager internal constructor(
         }
     }
 
-    fun dismissOffer() {
+    @Synchronized fun dismissOffer() {
         val tag = _state.value.available?.tag ?: return
         prefs.edit().putString("dismissed_tag", tag).apply()
-        _state.value = _state.value.copy(offer = false)
+        _state.update { it.copy(offer = false) }
     }
 
     private fun scheduleChecks() {
@@ -426,47 +482,27 @@ class UpdateManager internal constructor(
         WorkManager.getInstance(context).enqueueUniqueWork(AUTO_DOWNLOAD_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
     }
 
-    internal suspend fun automaticDownload(
-        channel: AndroidUpdateChannel,
-        tag: String,
-    ): Boolean {
-        if (!registrationReady) return true
-        // WorkManager can start this worker in a fresh process before Application.initialize() runs.
-        restoreReady()
-        val snapshot = _state.value
-        val selected = snapshot.channel == channel && snapshot.available?.tag == tag
-        return if (!snapshot.wifiDownload || !selected || snapshot.ready) {
-            true
-        } else if (!hasWifiTransport()) {
-            false
-        } else {
-            downloadInternal(automatic = true)
-            _state.value.ready ||
-                hasWifiTransport() &&
-                _state.value.error != UpdateError.NETWORK &&
-                _state.value.error != UpdateError.DOWNLOAD_FAILED
+    // Called under the operation mutex. A synchronous channel change can still invalidate verification.
+    private fun restoreReady() {
+        val epoch = generation.get()
+        val release = _state.value.available ?: return
+        val digest = prefs.updateString("ready_sha", null) ?: return
+        val failure =
+            if (prefs.updateString("ready_tag", null) != release.tag) {
+                UpdateError.INVALID_APK
+            } else {
+                verifier.verify(apkFile(release, digest), release, digest)
+            }
+        synchronized(this) {
+            if (generation.get() != epoch) return@synchronized
+            if (failure == null) {
+                _state.update { it.copy(ready = true) }
+            } else {
+                clearReady()
+                _state.update { it.copy(error = failure) }
+            }
         }
     }
-
-    private suspend fun restoreReady() =
-        operation.withLock {
-            val release = _state.value.available ?: return@withLock
-            val digest = prefs.updateString("ready_sha", null) ?: return@withLock
-            val failure =
-                if (prefs.updateString("ready_tag", null) !=
-                    release.tag
-                ) {
-                    UpdateError.INVALID_APK
-                } else {
-                    verifier.verify(apkFile(release, digest), release, digest)
-                }
-            if (failure != null) {
-                clearReady()
-                _state.value = _state.value.copy(error = failure)
-                return@withLock
-            }
-            _state.value = _state.value.copy(ready = true)
-        }
 
     // The scoped response keeps its body open through redirect and bounded streaming decisions.
     @Suppress("NestedBlockDepth")
@@ -552,7 +588,7 @@ class UpdateManager internal constructor(
             if (count > limit) throw UpdateFailure(UpdateError.SIZE_MISMATCH)
             output.write(bytes, 0, read)
             digest.update(bytes, 0, read)
-            _state.value = _state.value.copy(bytesDownloaded = count)
+            _state.update { it.copy(bytesDownloaded = count) }
         }
         return count
     }
@@ -606,7 +642,7 @@ class UpdateManager internal constructor(
             .remove("ready_sha")
             .apply()
         partFile().delete()
-        _state.value = _state.value.copy(ready = false, bytesDownloaded = 0)
+        _state.update { it.copy(ready = false, bytesDownloaded = 0) }
     }
 
     /** Keep the verified candidate and one recently handed-off or downloaded predecessor. */
@@ -733,7 +769,7 @@ class UpdateManager internal constructor(
                 if (!registered) {
                     val disabled = current ?: UpdateManager(appContext, config, registrationReady = false)
                     disabled.registrationReady = false
-                    disabled._state.value = disabled._state.value.copy(error = UpdateError.STORAGE, ready = false)
+                    disabled._state.update { it.copy(error = UpdateError.STORAGE, ready = false) }
                     instance = disabled
                     return@synchronized disabled
                 }

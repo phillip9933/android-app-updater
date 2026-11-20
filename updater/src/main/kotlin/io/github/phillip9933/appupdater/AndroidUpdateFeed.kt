@@ -204,13 +204,13 @@ class AndroidUpdateFeed(
             val size = asset.long("size")?.takeIf { it in 1..MAX_APK_BYTES } ?: return null
             val urlText = asset.string("browser_download_url") ?: return null
             val url = validDownloadUrl(urlText, config, tag, name) ?: return null
-            val digestValue = asset.string("digest")
+            val digestValue = asset["digest"]
             val digest =
-                if (digestValue == null) {
+                if (digestValue == null || digestValue == JsonNull) {
                     null
                 } else {
                     shaPattern
-                        .matchEntire(digestValue)
+                        .matchEntire(asset.string("digest") ?: return null)
                         ?.groupValues
                         ?.get(1)
                         ?.lowercase() ?: return null

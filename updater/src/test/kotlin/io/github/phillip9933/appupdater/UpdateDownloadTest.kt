@@ -1,6 +1,8 @@
 package io.github.phillip9933.appupdater
 
 import android.content.Context
+import androidx.work.testing.WorkManagerTestInitHelper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType
 import okhttp3.Protocol
@@ -10,6 +12,7 @@ import okhttp3.ResponseBody
 import okio.Buffer
 import okio.BufferedSource
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -53,6 +56,41 @@ class UpdateDownloadTest {
             assertEquals(expected, digest)
             assertEquals(bytes.toList(), File(context.cacheDir, "updates/update.part").readBytes().toList())
             assertNull(manager.prepareInstall())
+        }
+
+    @OptIn(kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi::class)
+    @Test
+    fun `progress cannot undo an opt out between its state read and write`() =
+        runBlocking {
+            WorkManagerTestInitHelper.initializeTestWorkManager(context)
+            val manager = manager()
+            val state = manager.state as MutableStateFlow<UpdateState>
+            // Force the same interleaving on every run, without sleeps or scheduler assumptions.
+            var optOutOnRead = true
+            val interleaved =
+                object : MutableStateFlow<UpdateState> by state {
+                    override var value: UpdateState
+                        get() {
+                            val snapshot = state.value
+                            if (optOutOnRead) {
+                                optOutOnRead = false
+                                manager.setAutomaticChecks(false)
+                            }
+                            return snapshot
+                        }
+                        set(value) {
+                            state.value = value
+                        }
+                }
+            UpdateManager::class.java
+                .getDeclaredField("_state")
+                .apply { isAccessible = true }
+                .set(manager, interleaved)
+            manager.saveResponseBody(response(-1, bytes), release(bytes.size.toLong(), null), 0)
+
+            assertFalse(state.value.automaticChecks)
+            assertEquals(bytes.size.toLong(), state.value.bytesDownloaded)
+            assertFalse(manager().state.value.automaticChecks)
         }
 
     @Test fun `truncated body with dishonest content length is rejected`() =

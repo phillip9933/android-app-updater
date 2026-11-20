@@ -46,7 +46,7 @@ class UpgradeTest {
             System.nanoTime() < scheduled) Thread.sleep(100)
         assertFalse(work.getWorkInfosForUniqueWork("android-public-release-wifi-download").get().isEmpty())
         // Persist an old-class download that cannot run before the host upgrade.
-        val oldClass = Class.forName("dev.rogers.appupdater.UpdateDownloadWorker")
+        val oldClass = Class.forName(manager.javaClass.name.substringBeforeLast('.') + ".UpdateDownloadWorker")
             .asSubclass(androidx.work.ListenableWorker::class.java)
         val request = OneTimeWorkRequest.Builder(oldClass)
             .setInputData(workDataOf("channel" to "STABLE", "tag" to "android-v1.0.1", "config_id" to
@@ -58,7 +58,7 @@ class UpgradeTest {
             .result.get(20, TimeUnit.SECONDS)
         assertEquals(request.id, work.getWorkInfosForUniqueWork("android-public-release-wifi-download").get()
             .single { !it.state.isFinished }.id)
-        assertTrue(activeWorkerClasses().any { it.startsWith("dev.rogers.appupdater.") })
+        assertTrue(activeWorkerClasses().contains(oldClass.name))
         println("LEGACY_SEEDED automatic=$automatic workers=${activeWorkerClasses()}")
     }
 
@@ -112,10 +112,12 @@ class UpgradeTest {
     private fun awaitReplacedWorkers() {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
         while (System.nanoTime() < deadline) {
-            if (activeWorkerClasses().none { it.startsWith("dev.rogers.") }) return
+            val active = activeWorkerClasses()
+            val expected = if (host.getBoolean("automatic", true)) listOf("io.github.phillip9933.appupdater.UpdateWorker") else emptyList()
+            if (active == expected) return
             Thread.sleep(100)
         }
-        fail("Old worker classes remain active: ${activeWorkerClasses()}")
+        fail("Unexpected active workers: ${activeWorkerClasses()}")
     }
 
     private fun activeWorkerClasses(): List<String> {

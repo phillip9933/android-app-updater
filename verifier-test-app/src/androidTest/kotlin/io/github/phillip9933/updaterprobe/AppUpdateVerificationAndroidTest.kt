@@ -71,6 +71,11 @@ class AppUpdateVerificationAndroidTest {
                 assertNotNull(intent)
                 assertEquals("${context.packageName}.android-updates", intent!!.data!!.authority)
                 assertEquals(Intent.FLAG_GRANT_READ_URI_PERMISSION, intent.flags)
+                val component = requireNotNull(intent.component)
+                assertEquals(
+                    android.content.pm.PackageManager.PERMISSION_GRANTED,
+                    context.packageManager.checkPermission(android.Manifest.permission.INSTALL_PACKAGES, component.packageName),
+                )
                 RandomAccessFile(cached, "rw").use { archive ->
                     val first = archive.readUnsignedByte()
                     archive.seek(0)

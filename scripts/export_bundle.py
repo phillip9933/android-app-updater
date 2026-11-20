@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build and export a clean committed revision, never artifacts from a developer's cache."""
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import hashlib
 import io
 import json
@@ -14,10 +14,13 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "0.2.2"
+VERSION = "1.0.0"
 GROUP = "io.github.phillip9933"
 ARTIFACT = "android-updater"
 COORDINATE = Path(*GROUP.split(".")) / ARTIFACT / VERSION
+WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} | {
+    prefix + digit for prefix in ("COM", "LPT") for digit in "123456789¹²³"
+}
 
 
 def git(*arguments):
@@ -30,25 +33,41 @@ def clean_revision():
     return git("rev-parse", "HEAD").decode().strip()
 
 
+def portable_parts(name):
+    parts = tuple(name.split("/"))
+    for part in parts:
+        if (
+            part in ("", ".", "..")
+            or part.endswith((".", " "))
+            or any(c in '\\:<>"|?*' or ord(c) < 32 or ord(c) == 127 for c in part)
+            or part.split(".", 1)[0].rstrip(" ").upper() in WINDOWS_DEVICE_NAMES
+        ):
+            raise SystemExit("Unsafe path in source snapshot")
+    return parts
+
+
 def committed_files(revision):
     snapshot = git("archive", "--format=tar", revision)
     files = {}
+    seen = set()
     with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
         for member in archive:
-            path = PurePosixPath(member.name)
-            if path.is_absolute() or ".." in path.parts:
-                raise SystemExit("Unsafe path in source snapshot")
+            parts = portable_parts(member.name)
+            key = tuple(part.casefold() for part in parts)
+            if key in seen:
+                raise SystemExit("Colliding paths in source snapshot")
+            seen.add(key)
             if member.isdir():
                 continue
             if not member.isfile():
                 raise SystemExit("Source snapshot must contain only regular files")
             # Git tracks only the executable bit; archive umasks must not change artifact bytes.
             mode = 0o755 if member.mode & 0o111 else 0o644
-            files[member.name] = (archive.extractfile(member).read(), mode)
-    build_file = files.get("updater/build.gradle.kts", (b"", 0))[0].decode()
+            files[parts] = (archive.extractfile(member).read(), mode)
+    build_file = files.get(("updater", "build.gradle.kts"), (b"", 0))[0].decode()
     if f'version = "{VERSION}"' not in build_file or f'group = "{GROUP}"' not in build_file:
         raise SystemExit("Exporter identity differs from committed library publication identity")
-    if not {"LICENSE", "gradlew", "gradlew.bat"}.issubset(files):
+    if not {("LICENSE",), ("gradlew",), ("gradlew.bat",)}.issubset(files):
         raise SystemExit("Source snapshot is incomplete")
     return files
 
@@ -84,12 +103,15 @@ def main():
     files = committed_files(revision)
     (ROOT / "build").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="export-", dir=ROOT / "build") as temporary:
-        checkout = Path(temporary) / "checkout"
+        checkout = Path(temporary).resolve() / "checkout"
         checkout.mkdir()
-        for name, (data, mode) in files.items():
-            path = checkout / name
+        for parts, (data, mode) in files.items():
+            path = checkout.joinpath(*parts)
+            if not path.resolve().is_relative_to(checkout):
+                raise SystemExit("Unsafe staging path in source snapshot")
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
+            with path.open("xb") as staged:
+                staged.write(data)
             path.chmod(mode)
         # This empty checkout has no old build outputs. Disable build-cache reuse too.
         wrapper = "gradlew.bat" if os.name == "nt" else "./gradlew"
@@ -106,10 +128,11 @@ def main():
         target.mkdir(parents=True)
         for name in names:
             shutil.copyfile(artifacts / name, target / name)
-        (bundle / "LICENSE").write_bytes(files["LICENSE"][0])
+        (bundle / "LICENSE").write_bytes(files[("LICENSE",)][0])
         (bundle / "SOURCE_REVISION.txt").write_text(revision + "\n", encoding="utf-8")
         with zipfile.ZipFile(bundle / f"android-app-updater-{VERSION}-source.zip", "w") as archive:
-            for name, (data, mode) in sorted(files.items()):
+            for parts, (data, mode) in sorted(files.items(), key=lambda item: "/".join(item[0])):
+                name = "/".join(parts)
                 info = zipfile.ZipInfo(f"android-app-updater-{VERSION}/{name}")
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.external_attr = mode << 16

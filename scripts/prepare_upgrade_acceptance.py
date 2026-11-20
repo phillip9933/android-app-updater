@@ -21,7 +21,10 @@ def main():
     parser.add_argument("--current-aar", type=Path, required=True)
     parser.add_argument("--candidate-sha256", help="Explicit local candidate hash; default verifies published 0.2.0")
     parser.add_argument("--destination", type=Path, default=ROOT / "build/upgrade-acceptance")
+    parser.add_argument("--legacy-version", choices=("0.1.3", "0.2.2"), default="0.1.3")
     args = parser.parse_args()
+    if args.legacy_version == "0.2.2":
+        PINS["legacy"] = ("30bdad7bcdc32081ed0469bd5fbb62146c5cf7286f92d305bef5cb83cb341c75", PINS["current"][1])
     destination = args.destination.resolve()
     if not destination.is_relative_to(ROOT / "build"):
         raise SystemExit("Stage generated projects only under repo/build")
@@ -38,6 +41,7 @@ def main():
         inputs[name] = data
     destination.mkdir(parents=True)
     (destination / "SDK_INPUTS.json").write_text(json.dumps({
+        "legacy_version": args.legacy_version,
         "current_is_local_candidate": bool(args.candidate_sha256),
         "sha256": {name: hashlib.sha256(data).hexdigest() for name, data in inputs.items()},
     }, indent=2) + "\n")

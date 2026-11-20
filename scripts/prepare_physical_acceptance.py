@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage an offline synthetic installer host using exact published SDK 0.2.0 bytes."""
+"""Stage an offline synthetic installer host using a checksum-pinned SDK."""
 from pathlib import Path
 import argparse
 import hashlib
@@ -13,11 +13,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk-aar", type=Path, required=True)
     parser.add_argument("--round", type=int, default=1, choices=(1, 2))
+    parser.add_argument("--candidate-sha256", help="Explicit SHA-256 of the reviewed candidate AAR")
+    parser.add_argument("--destination", type=Path, help="Fresh generated project under repo/build")
     args = parser.parse_args()
     data = args.sdk_aar.read_bytes()
-    if hashlib.sha256(data).hexdigest() != "ede8c4b3660654918b15004b17d0633bc8c7e1989c1548786671b98be9ea4854":
-        raise SystemExit("Expected exact immutable published 0.2.0 AAR")
+    if hashlib.sha256(data).hexdigest() != (args.candidate_sha256 or "ede8c4b3660654918b15004b17d0633bc8c7e1989c1548786671b98be9ea4854"):
+        raise SystemExit("Unexpected installer fixture SDK SHA-256")
     destination = ROOT / ("build/physical-acceptance" if args.round == 1 else "build/physical-acceptance-round2")
+    destination = (args.destination or destination).resolve()
+    if not destination.is_relative_to(ROOT / "build"):
+        raise SystemExit("Stage generated projects only under repo/build")
     if destination.exists():
         raise SystemExit("Preserve the existing generated fixture; do not overwrite")
     destination.mkdir(parents=True)

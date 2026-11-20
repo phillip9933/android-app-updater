@@ -54,12 +54,14 @@ Install. Denial leaves the current app installed and offers a later retry.
 
 On Install, the foreground controller calls `prepareInstall()` again and launches
 only its non-null Intent while still resumed, on the same tag and with installation
-permission. This repeats cached-file hash, APK identity and signer checks. Keep
-the SDK's scoped read-only URI flags; never substitute a release URL, file URI,
-download-manager path or broad URI grant. Android retains final confirmation and
-signature enforcement. Leaving the Activity during verification cancels the
-pending launch. An installer return or successful `startActivity()` does not prove
-installation: check the installed package/version on the next app start. Preserve
+permission. This repeats cached-file hash, APK identity and signer checks. The
+SDK targets an exported system APK handler granted Android's install permission.
+If no eligible handler exists, `prepareInstall()` returns null. Launch the
+returned Intent unchanged so the read-only URI grant stays scoped to that handler.
+Android retains final confirmation and signature enforcement. Leaving the
+Activity during verification cancels the pending launch. An installer return or
+successful `startActivity()` does not prove installation. Check the installed
+package/version on the next app start. Preserve
 application data; never suggest uninstalling to fix a signature mismatch.
 
 ## Optional UI module decision
