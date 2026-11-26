@@ -1,12 +1,16 @@
 # Android App Updater
 
+A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
+
+<a href="https://github.com/phillip9933/android-app-updater/releases/tag/v1.0.0"><img src="docs/badges/github-releases.svg" alt="Get the Android App Updater SDK from GitHub Releases" height="40"></a>
+
+**Support:** [Buy me a coffee](https://buymeacoffee.com/phillip9933) · [GitHub Sponsors](https://github.com/sponsors/phillip9933)
+
 ## Roadmap and work
 
 [Release roadmap](https://github.com/users/phillip9933/projects/4/views/2) · [Work board](https://github.com/users/phillip9933/projects/4/views/1) · [Issue conventions](CONTRIBUTING.md#public-roadmap-and-issue-management)
 
 Follow release scope and maturity separately from individual work. Dates are estimates; unscheduled ideas have no release milestone.
-
-A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
 
 ## 1.0 API and compatibility
 
@@ -102,3 +106,7 @@ Read [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [architecture](do
 ## License and provenance
 
 Distributed under the GNU Affero General Public License version 3; see [LICENSE](LICENSE). Exported bundles include corresponding library source and build files.
+
+## AI usage
+
+I use AI tools for analysis, implementation, tests, and documentation. I decide what ships and take responsibility for maintaining it. Project-specific testing and known limitations are documented separately.
