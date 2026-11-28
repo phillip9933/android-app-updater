@@ -7,3 +7,18 @@ Run `python3 -m unittest discover -s scripts -p 'test_*.py' -v` for the export s
 After reviewing that exact revision and outgoing file list, tag it `vX.Y.Z` and publish the complete Maven/source/license bundle and SHA256SUMS on the matching GitHub release with the owner's approval. Tag, SOURCE_REVISION.txt and source bundle must describe the same code. Mark candidates prerelease while signed platform/physical-device acceptance remains pending. Never include caches, local.properties, credentials or app APKs. Gradle dependency caches remain a build trust input; inspect dependency updates and use checksum verification in consuming projects.
 
 Consumers download the release bundle, validate its SHA256SUMS, and vendor the immutable Maven repository and corresponding source. Gradle must check all pins and reject unlisted Maven files. Publication does not automatically update Kura/Raiun pins. No Maven Central availability is claimed.
+
+## Security review of the release candidate
+
+Record the full Git commit of the final candidate. In Daybreak, check the scan
+type, scope, completion status and target commit. Reconcile existing findings
+against that source. Test each verified fix and record the result privately.
+Record remaining findings and any missing scan coverage separately. If no
+completed scan covers the candidate, obtain verification before promotion.
+A commit scan covers the change it inspected. Record any repository-wide
+coverage still needed.
+
+After publication, compare the commit behind the release tag with the evaluated
+commit and the bundle's `SOURCE_REVISION.txt`. Repeat verification if they
+differ. Put the revision and gate outcome in the release tracker. Keep finding
+details and private scan evidence in the maintainer's security records.

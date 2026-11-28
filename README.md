@@ -1,38 +1,33 @@
 # Android App Updater
 
-A standalone Kotlin Android library for public GitHub release checks and verified, user-confirmed APK updates. It contains no app UI, cloud account access or application-specific dependency. Minimum Android API: 26. Built with JDK 21, Gradle 8.13, AGP 8.13.2 and Kotlin 2.2.20.
+A Kotlin library for Android 8.0 (API 26) and later. It helps an app discover updates on GitHub Releases, verify the APK, and open the Android installer when the user chooses to update.
 
 <a href="https://github.com/phillip9933/android-app-updater/releases/tag/v1.0.0"><img src="docs/badges/github-releases.svg" alt="Get the Android App Updater SDK from GitHub Releases" height="40"></a>
 
 **Support:** [Buy me a coffee](https://buymeacoffee.com/phillip9933) · [GitHub Sponsors](https://github.com/sponsors/phillip9933)
 
-## Roadmap and work
+## Features
 
-[Release roadmap](https://github.com/users/phillip9933/projects/4/views/2) · [Work board](https://github.com/users/phillip9933/projects/4/views/1) · [Issue conventions](CONTRIBUTING.md#public-roadmap-and-issue-management)
+- Check a public GitHub repository for stable or beta releases of your app.
+- Observe check and download progress in your own UI through `StateFlow<UpdateState>`.
+- Schedule periodic checks and let users opt in to Wi-Fi downloads.
+- Check the package name, version, Android compatibility, debug flag and signing certificates before offering an APK for installation.
 
-Follow release scope and maturity separately from individual work. Dates are estimates; unscheduled ideas have no release milestone.
+## Host app example
 
-## 1.0 API and compatibility
+The host app chooses when and how to show an update. The [Kotlin example](examples/UpdatePromptController.kt) uses a platform dialog for Download, Later and Install. The [integration guide](docs/UPDATE_PROMPT.md) explains how to connect it to an Activity. The verifier app compiles the example for tests. The distributed SDK has no screens.
 
-1.x supports the host-facing Kotlin API for configuring public GitHub updates, selecting a channel, observing update state, controlling checks and downloads, and preparing a foreground installer intent. Apps upgrading from 0.2.2 can keep their existing imports, configuration and preference names. Keep the installer intent's explicit component and read grant intact. A device without an eligible system installation handler returns no install intent.
+## Install the SDK
 
-## Cache-recovery correction
+Download `android-app-updater-1.0.0-bundle.zip` from the [1.0.0 release](https://github.com/phillip9933/android-app-updater/releases/tag/v1.0.0). The bundle contains a local Maven repository and the corresponding source. Compare the ZIP's SHA-256 with the release checksum before extracting anything. For 1.0.0, run this command in the download directory:
 
-**0.2.2** allows a fully verified fresh download to atomically replace a corrupted cached APK. Invalid new bytes still cannot replace an existing verified candidate. The public API and runtime dependencies are unchanged. The owner confirmed physical-device testing passed before authorizing stable promotion. Published 0.2.1 and 0.2.2-beta.1 bytes remain unchanged.
+```sh
+echo '13b0fa5df7524091191e063c9b25bdb4d222866053228754d98ea3f1d1e72763  android-app-updater-1.0.0-bundle.zip' | sha256sum -c -
+```
 
-## Security update
+Extract the verified ZIP into an empty `third_party/android-updater/` directory in the host project. From that directory, run `sha256sum -c SHA256SUMS`. Keep the checksums and reject unlisted Maven files when updating the vendored copy. Pin the exact version in Gradle.
 
-**0.2.1** corrects [obsolete queued Wi-Fi work after a host upgrade](https://github.com/phillip9933/android-app-updater/issues/8) and adds build dependency locks and checksum verification. Earlier release assets remain immutable. No shared UI module is planned: each app owns its update UI.
-
-Use **0.1.3 or newer**. Version 0.1.2's archive debuggable check is unreliable on Android 15. The fix reads the binary manifest, resolves resource-backed booleans and fails closed on missing/unreadable metadata. See [testing](docs/TESTING.md) for native regression evidence and remaining acceptance gates.
-
-## Consume an explicit version
-
-Version **1.0.0** uses `io.github.phillip9933:android-updater:1.0.0` and the Kotlin package `io.github.phillip9933.appupdater`. Use explicit versions, never dynamic versions, `SNAPSHOT`, sibling source paths or mutable Git branches. Versioned source and checksum-pinned Maven bundles are distributed through [GitHub Releases](https://github.com/phillip9933/android-app-updater/releases); check release availability before pinning a version. The library is not published to Maven Central.
-
-Version 0.2.0 changes the package and Maven group. Update imports and dependency coordinates together. Reinitialize the updater after upgrading: its bootstrap preference namespace changes, so automatic checks start with the new registration. Existing application data is unaffected.
-
-Copy the exported bundle into the consuming project and add its `maven/` directory to `dependencyResolutionManagement.repositories`:
+Add the bundle’s `maven/` directory to `dependencyResolutionManagement.repositories` in `settings.gradle.kts`.
 
 ```kotlin
 exclusiveContent {
@@ -43,13 +38,17 @@ exclusiveContent {
 }
 ```
 
-Retain and verify the bundle's SHA256SUMS before resolving dependencies, and reject unlisted Maven files. Then add the explicit dependency and app configuration:
+Add the dependency to the host app’s `build.gradle.kts`.
 
 ```kotlin
 dependencies {
     implementation("io.github.phillip9933:android-updater:1.0.0")
 }
+```
 
+In your Application, initialize the updater with your app’s GitHub repository and release naming scheme. For example:
+
+```kotlin
 val config = UpdateConfig(
     owner = "example-owner",
     repository = "example-app",
@@ -62,21 +61,23 @@ updater.initialize()
 
 The library exposes `StateFlow<UpdateState>` and operations for checking, choosing stable/beta, dismissal, download/cancellation and preparing an installer Intent. Keep Compose styling, translations, permission handling and launching the returned Intent in the app. Call `prepareInstall()` on an explicit foreground user action; never start an installer from a worker. An installer return does not prove installation succeeded.
 
-For a new-version popup, see the [host-owned integration guide and compilable example](docs/UPDATE_PROMPT.md). Build maintainers should follow the [dependency lock and checksum review procedure](docs/DEPENDENCIES.md).
+Apps upgrading from SDK 0.2.2 can keep their imports, configuration and preference names. When migrating from 0.1.x, update the imports and Maven group and initialize the new worker registration. See the [changelog](CHANGELOG.md) for earlier versions.
 
-The app must explicitly declare `INTERNET`, `ACCESS_NETWORK_STATE` and `REQUEST_INSTALL_PACKAGES` where its distribution and privacy policy permit them. The library itself does not declare INTERNET or REQUEST_INSTALL_PACKAGES. WorkManager can contribute its own normal permissions through manifest merging; inspect the final app manifest. It contributes a nonexported FileProvider at `${applicationId}.android-updates`, scoped to the `updates/` cache subdirectory. Do not duplicate that provider in the host manifest. WorkManager configuration must remain available after process recreation.
+The app must explicitly declare `INTERNET`, `ACCESS_NETWORK_STATE` and `REQUEST_INSTALL_PACKAGES` where its distribution and privacy policy permit them. The library itself does not declare INTERNET or REQUEST_INSTALL_PACKAGES. WorkManager can contribute its own normal permissions through manifest merging; inspect the final app manifest. The updater contributes a nonexported FileProvider at `${applicationId}.android-updates`, scoped to the `updates/` cache subdirectory. Do not duplicate that provider in the host manifest. WorkManager configuration must remain available after process recreation.
 
 For example tags `android-v1.2.3` and `android-v1.3.0-beta.1`, attach exactly one universal release APK named `example-android-1.2.3.apk` or `example-android-1.3.0-beta.1.apk`. Mark betas as prereleases. APK versionName must match the tag version; versionCode must increase for every distributed build and retain the installed signing identity. Different apps must use distinct owner/repository/prefix configuration. Legacy tags are accepted only when explicitly listed in `legacyVersions` with their `legacyAssetPrefix`.
 
 ## Security and behavior
 
-The feed uses a public, unauthenticated GitHub client with no cloud credentials or cookies. Exact repository/asset URLs are checked, redirects restricted to GitHub asset hosts, and metadata/download size and time bounds enforced. Checks run about daily by default, subject to Android scheduling; Wi-Fi downloads are opt-in. Downloads are private, streamed, cancellable and verified for exact size and advertised SHA-256 when available. Package ID, version, minimum SDK, debug flag and installed signer set are checked before publishing the cached APK and checked again before installer handoff. Android enforces final package signature validity and confirms installation.
+The feed uses a public, unauthenticated GitHub client with no cloud credentials or cookies. Exact repository/asset URLs are checked, redirects restricted to GitHub asset hosts, and metadata/download size and time bounds enforced. Checks run about daily by default, subject to Android scheduling; Wi-Fi downloads are opt-in. Downloads are private, streamed, cancellable and verified for exact size and advertised SHA-256 when available. Package ID, version, minimum SDK, debug flag and installed signer set are checked before publishing the cached APK and checked again before installer handoff. On an Install tap, preserve the explicit system installer component and the read-only URI grant returned by `prepareInstall()`. If no eligible installer is available, the SDK returns no intent. Android verifies the package and asks the user to confirm.
 
 Checksums authenticate bytes against metadata, not the release author's intent; keep the release signing key protected. Current strict signer-set matching does not support automatic signing-key rotation. The library does not handle Play-delivered split APKs, silent installs, arbitrary update servers, private GitHub repositories or desktop installation. The feed is bounded to the most recent 100 GitHub releases and 2 MiB; APKs are bounded to 512 MiB. No compatibility guarantee is made for app-store policies; apps must choose their own allowed distribution route.
 
 Updater metadata and cached APKs are separate from application/vault data. Keeping the installed app is essential; never recommend uninstalling to work around a signing mismatch. Automated tests do not replace a real signed upgrade test.
 
 ## Build, test and package
+
+Use JDK 21, Android SDK Platform 36 and Build Tools 35.0.0. From the repository root, run the Gradle wrapper.
 
 ```sh
 ./gradlew --no-daemon ktlintCheck detekt :updater:testDebugUnitTest :updater:lintRelease :updater:assembleRelease
@@ -87,21 +88,21 @@ The Maven repository is generated at `build/maven/`. After tests pass and review
 
 A release needs a clean source revision, passing host/static/lint checks and a signed native install/upgrade journey on API 26, API 35 and a physical device. Do not publish production credentials or app APKs from this repository.
 
-## Local verification
+## Release verification
 
-The cache-recovery candidate passed 56 host tests, nine exporter regressions, four dependency rejection checks and 15 native cases per API 26/35. The owner confirmed physical testing passed and authorized stable 0.2.2 on 6 November 2026; the release task did not repeat those physical tests. Exact-source stable CI and artifact verification are linked from [the release tracker](https://github.com/phillip9933/android-app-updater/issues/10).
+SDK 1.0.0 passed 63 host tests and 15 native verifier cases each on API 26, API 35 and a Pixel 6 Pro on API 37. The device test covered permission denial, cancellation and a confirmed update that retained private app data. See the [test evidence](docs/TESTING.md) and [release tracker](https://github.com/phillip9933/android-app-updater/issues/12).
 
-Version 0.2.1 passed 56 host tests, nine exporter regressions, four dependency rejection checks, and 13 native security cases per API 26/35. Signed synthetic host upgrades with retained data and worker recreation passed on both emulator APIs and Pixel 10 Pro / Android 17. The Pixel also passed 13 native cases for published 0.2.0 and the 0.2.1 correction, plus real Android permission denial, installer cancellation and explicit update confirmation. See [physical evidence and limits](docs/PHYSICAL_ACCEPTANCE.md) and [migration checks](docs/UPGRADE_ACCEPTANCE.md). These synthetic checks do not replace production-signed consumer acceptance.
+## Roadmap and work
 
-The hardened 0.2.0 candidate passed 55 host tests, nine synthetic exporter tests, formatting/static checks, release lint, Maven publication and probe APK assembly locally. The expanded native verifier suite passed 13 tests on each API 26 and API 35, including unsigned/forged APK rejection and installer-handoff revalidation. A fresh isolated build/export and all seven bundle pins also passed. This remains a prerelease; see [testing evidence](docs/TESTING.md) for scope and remaining physical-device acceptance.
+[Release roadmap](https://github.com/users/phillip9933/projects/4/views/2) · [Work board](https://github.com/users/phillip9933/projects/4/views/1) · [Issue conventions](CONTRIBUTING.md#public-roadmap-and-issue-management)
 
 ## About this project
 
-I build projects to solve problems I run into in my own life. I share them because I believe in open source and hope others can learn from them, adapt them or find them useful. Public availability does not promise production readiness, a support schedule or suitability for every setup.
+I needed a safer way to update my Android apps outside an app store. I made the updater a library so each app could keep its own design and control when installation starts. I share it so others can inspect how it works or use it in their own apps.
 
 ## Contribute and validate
 
-Read [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [architecture](docs/ARCHITECTURE.md), [testing evidence](docs/TESTING.md) and [release procedure](docs/RELEASING.md). AI tools assist analysis, code, tests and documentation; contribution summaries must disclose material assistance and distinguish checks actually run from pending checks. Do not share real vault data, credentials or signing material.
+Read [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), [architecture](docs/ARCHITECTURE.md), [dependency review](docs/DEPENDENCIES.md), [testing evidence](docs/TESTING.md) and [release procedure](docs/RELEASING.md). AI tools assist analysis, code, tests and documentation; contribution summaries must disclose material assistance and distinguish checks actually run from pending checks. Do not share real vault data, credentials or signing material.
 
 ## License and provenance
 

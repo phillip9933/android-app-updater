@@ -50,3 +50,21 @@ The initial checksum baseline was generated from the existing resolved build
 inputs, not from a new independent audit of every upstream publisher. Initial
 locks introduce no intentional dependency upgrades. Retain this limitation in
 reviews rather than describing checksum generation as supply-chain attestation.
+
+## Scheduled update review
+
+Dependabot checks the root Gradle build and GitHub Actions weekly. The root
+settings include the SDK and `verifier-test-app`. Review each proposed update
+before merging. Keep Actions pinned to the reviewed publisher's full commit SHA.
+
+When a plugin or test library changes, review the root buildscript lock, both
+module locks and the verification metadata together. The generated upgrade and
+physical test hosts also use `scripts/upgrade_acceptance/app.gradle.kts`.
+Check its declarations against both modules. It is a fixture template outside
+the root build. Review the Android SDK, emulator images and JDK separately.
+
+For native runner changes, run `:verifier-test-app:connectedDebugAndroidTest`
+on disposable API 26 and 35 emulators. Use the reviewed locks and strict
+checksums. This task resolves the Unified Test Platform dependencies used to
+install the test APK and run instrumentation. Inspect the native runner entries
+in `verifier-test-app/gradle.lockfile` when the Android Gradle Plugin changes.
