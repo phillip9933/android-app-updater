@@ -16,6 +16,8 @@ jobs:
         api: [26, 35]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -32,7 +34,8 @@ jobs:
           echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n updater-verifier -p "$ANDROID_AVD_HOME/updater-verifier.avd" -k "system-images;android-$API;google_apis;x86_64" --force
           test -f "$ANDROID_AVD_HOME/updater-verifier.ini"
           $ANDROID_HOME/emulator/emulator -list-avds | grep -Fx updater-verifier
-          sudo chmod a+rw /dev/kvm
+          sudo chgrp "$(id -gn)" /dev/kvm
+          sudo chmod 660 /dev/kvm
           nohup $ANDROID_HOME/emulator/emulator -avd updater-verifier -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > emulator.log 2>&1 &
           if ! timeout 90 $ANDROID_HOME/platform-tools/adb wait-for-device; then
             cat emulator.log
